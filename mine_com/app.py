@@ -8,6 +8,7 @@ import re
 import zipfile
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from mcipc.rcon.je import Client as RconClient
+import threading
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey123'
@@ -629,55 +630,64 @@ def add_config(server_name):
 
 @app.route('/server/<server_name>/backup', methods=['POST'])
 def backup_only(server_name):
-    if 'logged_in' not in session or not session['logged_in']:
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
-
-    world_ramdisk = os.path.join('/mnt/ramdisk', f"{server_name}_world")
-    backup_dir = os.path.join('/mnt/raid/minecraft', server_name, 'backups')
-    os.makedirs(backup_dir, exist_ok=True)
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    backup_name = f"world_{timestamp}.tar.gz"
-    backup_path = os.path.join(backup_dir, backup_name)
-
-    if not os.path.isdir(world_ramdisk):
-        return jsonify({'success': False, 'error': 'RAM-диск мира не найден'}), 400
-    try:
-        subprocess.check_call(['tar', '-czf', backup_path, '-C', world_ramdisk, '.'])
-        return jsonify({'success': True, 'backup': backup_name, 'message': 'Бекап успешно создан.'})
-    except Exception as e:
-        return jsonify({'success': False, 'error': f'Ошибка при создании бекапа: {e}'}), 500
+    if backup_status.get(server_name) == "in_progress":
+        return jsonify({'success': False, 'error': 'Бэкап уже выполняется!'}), 409
+    started = start_backup_async(server_name, backup_and_stop=False)
+    if not started:
+        return jsonify({'success': False, 'error': 'Бэкап уже выполняется!'}), 409
+    return jsonify({'success': True, 'message': 'Бэкап запущен.'})
 
 @app.route('/server/<server_name>/backup_and_stop', methods=['POST'])
 def backup_and_stop(server_name):
-    if 'logged_in' not in session or not session['logged_in']:
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    if backup_status.get(server_name) == "in_progress":
+        return jsonify({'success': False, 'error': 'Бэкап уже выполняется!'}), 409
+    started = start_backup_async(server_name, backup_and_stop=True)
+    if not started:
+        return jsonify({'success': False, 'error': 'Бэкап уже выполняется!'}), 409
+    return jsonify({'success': True, 'message': 'Бэкап и остановка запущены.'})
 
-    world_ramdisk = os.path.join('/mnt/ramdisk', f"{server_name}_world")
-    backup_dir = os.path.join('/mnt/raid/minecraft', server_name, 'backups')
-    os.makedirs(backup_dir, exist_ok=True)
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    backup_name = f"world_{timestamp}.tar.gz"
-    backup_path = os.path.join(backup_dir, backup_name)
+@app.route('/server/<server_name>/backup_status')
+def backup_status_endpoint(server_name):
+    status = backup_status.get(server_name, "idle")
+    return jsonify({'status': status})
 
-    if not os.path.isdir(world_ramdisk):
-        return jsonify({'success': False, 'error': 'RAM-диск мира не найден'}), 400
-    try:
-        subprocess.check_call(['tar', '-czf', backup_path, '-C', world_ramdisk, '.'])
-    except Exception as e:
-        return jsonify({'success': False, 'error': f'Ошибка при создании бекапа: {e}'}), 500
 
-    # Вызываем stop.sh для завершения процесса и размонтирования RAM-диска
-    script_path = os.path.join(
-        os.path.abspath(os.path.join(os.path.dirname(__file__), '..')),
-        server_name, "ramdisk-minecraft", "stop.sh"
-    )
-    if not os.path.isfile(script_path):
-        return jsonify({'success': False, 'error': 'stop.sh не найден'}), 500
-    try:
-        proc = subprocess.Popen([script_path])
-        return jsonify({'success': True, 'backup': backup_name, 'message': 'Бекап создан, сервер останавливается.'})
-    except Exception as e:
-        return jsonify({'success': False, 'error': f'Ошибка при запуске stop.sh: {e}'}), 500
+backup_status = {}  # server_name: "idle"|"in_progress"|"error"
+
+def start_backup_async(server_name, backup_and_stop=False):
+    def run_backup():
+        backup_status[server_name] = "in_progress"
+        try:
+            # --- ваш код бэкапа (как в /backup или /backup_and_stop) ---
+            # ... (создание archive и т.д.)
+            world_ramdisk = os.path.join('/mnt/ramdisk', f"{server_name}_world")
+            backup_dir = os.path.join('/mnt/raid/minecraft', server_name, 'backups')
+            os.makedirs(backup_dir, exist_ok=True)
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            backup_name = f"world_{timestamp}.tar.gz"
+            backup_path = os.path.join(backup_dir, backup_name)
+            if not os.path.isdir(world_ramdisk):
+                backup_status[server_name] = "error"
+                return
+            subprocess.check_call(['tar', '-czf', backup_path, '-C', world_ramdisk, '.'])
+            
+            if backup_and_stop:
+                script_path = os.path.join(
+                    os.path.abspath(os.path.join(os.path.dirname(__file__), '..')),
+                    server_name, "ramdisk-minecraft", "stop.sh"
+                )
+                if os.path.isfile(script_path):
+                    subprocess.Popen([script_path])
+            backup_status[server_name] = "idle"
+        except Exception:
+            backup_status[server_name] = "error"
+    # Не даём стартовать второй бэкап, если уже идет
+    if backup_status.get(server_name) == "in_progress":
+        return False
+    backup_status[server_name] = "in_progress"
+    t = threading.Thread(target=run_backup, daemon=True)
+    t.start()
+    return True
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8390, debug=True)

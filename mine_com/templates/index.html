@@ -388,6 +388,19 @@
                 });
         }
 
+        function updateBackupButtons(server) {
+            fetch(`/server/${server}/backup_status`)
+            .then(r => r.json())
+            .then(d => {
+                const backupInProgress = d.status === "in_progress";
+                const btnBackup = document.querySelector(`[onclick*="backupOnlyServer('${server}'"]`);
+                const btnBackupStop = document.querySelector(`[onclick*="backupAndStopServer('${server}'"]`);
+                if (btnBackup) btnBackup.disabled = backupInProgress;
+                if (btnBackupStop) btnBackupStop.disabled = backupInProgress;
+            });
+        }
+
+
         function backupOnlyServer(server, btn) {
             btn.disabled = true;
             btn.textContent = "Бекап...";
@@ -911,6 +924,13 @@
         setInterval(() => {
             if (autoRefreshEnabled) updateServerStatus();
         }, 2000);
+        // Вызовите updateBackupButtons(server) для каждого сервера раз в 2-3 секунды
+        setInterval(() => {
+            document.querySelectorAll('.server-item').forEach(li => {
+                const server = li.dataset.server;
+                updateBackupButtons(server);
+            });
+        }, 3000);
 
         updateResources();
         fetchServersAndRender();
