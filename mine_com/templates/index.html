@@ -412,11 +412,21 @@
             .then(r => r.json())
             .then(d => {
                 const backupInProgress = d.status === "in_progress";
+                // Получаем инфу о сервере из DOM (наличие класса active у .server-toggle)
+                const li = document.querySelector(`.server-item[data-server="${server}"]`);
+                let isActive = false;
+                if (li) {
+                    const toggle = li.querySelector('.server-toggle');
+                    if (toggle && toggle.classList.contains('active')) {
+                        isActive = true;
+                    }
+                }
                 const btnBackup = document.querySelector(`.backup-btn-only[onclick*="backupOnlyServer('${server}'"]`);
                 const btnBackupStop = document.querySelector(`.backup-btn-stop[onclick*="backupAndStopServer('${server}'"]`);
                 const indicator = document.getElementById(`backup-status-${server}`);
-                if (btnBackup) btnBackup.disabled = backupInProgress;
-                if (btnBackupStop) btnBackupStop.disabled = backupInProgress;
+                // Кнопки бэкапа блокируются если неактивен сервер или идет бэкап
+                if (btnBackup) btnBackup.disabled = backupInProgress || !isActive;
+                if (btnBackupStop) btnBackupStop.disabled = backupInProgress || !isActive;
 
                 // Информатор рядом с кнопкой
                 if (backupInProgress) {
