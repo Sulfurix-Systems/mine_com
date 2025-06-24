@@ -709,10 +709,7 @@ def start_backup_async(server_name, backup_and_stop=False, threads=28):
                     server_name, "ramdisk-minecraft", "stop.sh"
                 )
                 if os.path.isfile(script_path):
-                    print(f"Запуск остановки: {script_path}")
-                    subprocess.Popen(["bash", script_path])
-                else:
-                    print(f"stop.sh не найден: {script_path}")
+                    subprocess.Popen([script_path])
 
             backup_status[server_name] = "idle"
             backup_result[server_name] = {'filename': backup_name, 'success': True, 'error': None}
