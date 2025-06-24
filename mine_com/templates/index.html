@@ -442,6 +442,7 @@
             });
         }
 
+        // После действий НЕ вызывай updateServerStatus(), просто жди таймер:
         function backupOnlyServer(server, btn) {
             btn.disabled = true;
             btn.textContent = "Бекап...";
@@ -450,15 +451,12 @@
                 .then(d => {
                     if (d.success) {
                         pollBackupStatus(server);
-                        // Не показываем alert сразу, ждём завершения!
                     } else {
                         alert(d.error || "Ошибка при бекапе!");
                     }
-                    updateServerStatus();
                 })
                 .catch(() => {
                     alert("Ошибка запроса к серверу!");
-                    updateServerStatus();
                 })
                 .finally(() => {
                     btn.textContent = "Принудительный бекап";
@@ -962,9 +960,6 @@
 
         setInterval(updateResources, 2500);
         setInterval(fetchAndUpdateMiniMetrics, 2000);
-        setInterval(() => {
-            if (autoRefreshEnabled) updateServerStatus();
-        }, 2000);
 
         updateResources();
         fetchServersAndRender();
