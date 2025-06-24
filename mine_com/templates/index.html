@@ -295,6 +295,13 @@
             servers.forEach(server => {
                 ul.appendChild(renderServerItem(server));
             });
+            // запуск статусов бэкапов после DOM-рендера!
+            setTimeout(() => {
+                servers.forEach(server => {
+                    pollBackupStatus(server.name);
+                });
+            }, 20);
+
             if (openedPropertiesPanel) {
                 setTimeout(() => toggleProperties(openedPropertiesPanel, true), 100);
             }
@@ -322,13 +329,13 @@
             </div>
             <div class="server-actions-group">
                 <div class="server-actions-row">
-                    <button class="server-btn" onclick="serverAction('${server.name}', 'start', this)" ${server.active || server.busy ? "disabled" : ""}>Включить</button>
-                    <!-- Кнопка "Бекап и остановить" заменяет "Выключить" -->
-                    <button class="server-btn" onclick="backupAndStopServer('${server.name}', this)" ${!server.active || server.busy ? "disabled" : ""}>Бекап и остановить</button>
-                    <!-- Принудительный бекап — всегда доступен когда сервер активен -->
-                    <button class="server-btn" onclick="backupOnlyServer('${server.name}', this)" ${!server.active ? "disabled" : ""}>Принудительный бекап</button>
+                    <button class="server-btn backup-btn-start" onclick="serverAction('${server.name}', 'start', this)" ${server.active || server.busy ? "disabled" : ""}>Включить</button>
+                    <button class="server-btn backup-btn-stop" onclick="backupAndStopServer('${server.name}', this)" ${!server.active || server.busy ? "disabled" : ""}>Бекап и остановить</button>
+                    <button class="server-btn backup-btn-only" onclick="backupOnlyServer('${server.name}', this)" ${!server.active ? "disabled" : ""}>Принудительный бекап</button>
                     <span class="busy-indicator" style="${server.busy ? "" : "display:none"}">⏳</span>
+                    <span class="backup-status-indicator" id="backup-status-${server.name}"></span>
                 </div>
+                <!-- ... остальные кнопки без изменений ... -->
                 <div class="server-actions-row">
                 <button class="server-btn log-btn" onclick="showLog('${server.name}')">Лог старта</button>
                 <button class="server-btn log-btn" onclick="showLogStop('${server.name}')">Лог остановки</button>
@@ -372,7 +379,8 @@
                 .then(r => r.json())
                 .then(d => {
                     if (d.success) {
-                        alert("Бекап создан и сервер останавливается!\nФайл: " + d.backup);
+                        pollBackupStatus(server);
+                        // Не показываем alert сразу, ждём завершения!
                     } else {
                         alert(d.error || "Ошибка при бекапе и остановке!");
                     }
@@ -383,7 +391,6 @@
                     updateServerStatus();
                 })
                 .finally(() => {
-                    btn.disabled = false;
                     btn.textContent = "Бекап и остановить";
                 });
         }
@@ -400,6 +407,40 @@
             });
         }
 
+        function pollBackupStatus(server) {
+            fetch(`/server/${server}/backup_status`)
+            .then(r => r.json())
+            .then(d => {
+                const backupInProgress = d.status === "in_progress";
+                const btnBackup = document.querySelector(`.backup-btn-only[onclick*="backupOnlyServer('${server}'"]`);
+                const btnBackupStop = document.querySelector(`.backup-btn-stop[onclick*="backupAndStopServer('${server}'"]`);
+                const indicator = document.getElementById(`backup-status-${server}`);
+                if (btnBackup) btnBackup.disabled = backupInProgress;
+                if (btnBackupStop) btnBackupStop.disabled = backupInProgress;
+
+                // Информатор рядом с кнопкой
+                if (backupInProgress) {
+                    indicator.textContent = "Бекап выполняется...";
+                    indicator.classList.remove("error");
+                } else if (d.status === "error") {
+                    indicator.textContent = "Ошибка бэкапа!";
+                    indicator.classList.add("error");
+                    setTimeout(() => { indicator.textContent = ""; indicator.classList.remove("error"); }, 6000);
+                } else if (d.status === "idle" && d.success && d.filename) {
+                    indicator.textContent = "Бекап завершён: " + d.filename;
+                    indicator.classList.remove("error");
+                    setTimeout(() => { indicator.textContent = ""; }, 8000);
+                } else {
+                    indicator.textContent = "";
+                    indicator.classList.remove("error");
+                }
+
+                // Если бэкап ещё не завершён — продолжаем polling
+                if (backupInProgress) {
+                    setTimeout(() => pollBackupStatus(server), 2000);
+                }
+            });
+        }
 
         function backupOnlyServer(server, btn) {
             btn.disabled = true;
@@ -408,7 +449,8 @@
                 .then(r => r.json())
                 .then(d => {
                     if (d.success) {
-                        alert("Принудительный бекап создан!\nФайл: " + d.backup);
+                        pollBackupStatus(server);
+                        // Не показываем alert сразу, ждём завершения!
                     } else {
                         alert(d.error || "Ошибка при бекапе!");
                     }
@@ -419,7 +461,6 @@
                     updateServerStatus();
                 })
                 .finally(() => {
-                    btn.disabled = false;
                     btn.textContent = "Принудительный бекап";
                 });
         }
@@ -924,13 +965,6 @@
         setInterval(() => {
             if (autoRefreshEnabled) updateServerStatus();
         }, 2000);
-        // Вызовите updateBackupButtons(server) для каждого сервера раз в 2-3 секунды
-        setInterval(() => {
-            document.querySelectorAll('.server-item').forEach(li => {
-                const server = li.dataset.server;
-                updateBackupButtons(server);
-            });
-        }, 3000);
 
         updateResources();
         fetchServersAndRender();

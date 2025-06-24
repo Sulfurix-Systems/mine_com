@@ -627,15 +627,14 @@ def add_config(server_name):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
     
-
 @app.route('/server/<server_name>/backup', methods=['POST'])
 def backup_only(server_name):
     if backup_status.get(server_name) == "in_progress":
-        return jsonify({'success': False, 'error': 'Бэкап уже выполняется!'}), 409
+        return jsonify({'success': False, 'error': 'Бекап уже выполняется!'}), 409
     started = start_backup_async(server_name, backup_and_stop=False)
     if not started:
-        return jsonify({'success': False, 'error': 'Бэкап уже выполняется!'}), 409
-    return jsonify({'success': True, 'message': 'Бэкап запущен.'})
+        return jsonify({'success': False, 'error': 'Бекап уже выполняется!'}), 409
+    return jsonify({'success': True, 'message': 'Бекап запущен.'})
 
 @app.route('/server/<server_name>/backup_and_stop', methods=['POST'])
 def backup_and_stop(server_name):
@@ -644,22 +643,22 @@ def backup_and_stop(server_name):
     started = start_backup_async(server_name, backup_and_stop=True)
     if not started:
         return jsonify({'success': False, 'error': 'Бэкап уже выполняется!'}), 409
-    return jsonify({'success': True, 'message': 'Бэкап и остановка запущены.'})
+    return jsonify({'success': True, 'message': 'Бекап и остановка запущены.'})
 
 @app.route('/server/<server_name>/backup_status')
 def backup_status_endpoint(server_name):
     status = backup_status.get(server_name, "idle")
-    return jsonify({'status': status})
+    result = backup_result.get(server_name, {})
+    return jsonify({'status': status, **result})
 
 
 backup_status = {}  # server_name: "idle"|"in_progress"|"error"
+backup_result = {}        # server_name: {'filename': ..., 'success': True/False, 'error': ...}
 
 def start_backup_async(server_name, backup_and_stop=False):
     def run_backup():
         backup_status[server_name] = "in_progress"
         try:
-            # --- ваш код бэкапа (как в /backup или /backup_and_stop) ---
-            # ... (создание archive и т.д.)
             world_ramdisk = os.path.join('/mnt/ramdisk', f"{server_name}_world")
             backup_dir = os.path.join('/mnt/raid/minecraft', server_name, 'backups')
             os.makedirs(backup_dir, exist_ok=True)
@@ -668,6 +667,7 @@ def start_backup_async(server_name, backup_and_stop=False):
             backup_path = os.path.join(backup_dir, backup_name)
             if not os.path.isdir(world_ramdisk):
                 backup_status[server_name] = "error"
+                backup_result[server_name] = {'filename': None, 'success': False, 'error': 'RAM-диск мира не найден'}
                 return
             subprocess.check_call(['tar', '-czf', backup_path, '-C', world_ramdisk, '.'])
             
@@ -679,9 +679,10 @@ def start_backup_async(server_name, backup_and_stop=False):
                 if os.path.isfile(script_path):
                     subprocess.Popen([script_path])
             backup_status[server_name] = "idle"
-        except Exception:
+            backup_result[server_name] = {'filename': backup_name, 'success': True, 'error': None}
+        except Exception as e:
             backup_status[server_name] = "error"
-    # Не даём стартовать второй бэкап, если уже идет
+            backup_result[server_name] = {'filename': None, 'success': False, 'error': str(e)}
     if backup_status.get(server_name) == "in_progress":
         return False
     backup_status[server_name] = "in_progress"
