@@ -625,6 +625,59 @@ def add_config(server_name):
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+    
+
+@app.route('/server/<server_name>/backup', methods=['POST'])
+def backup_only(server_name):
+    if 'logged_in' not in session or not session['logged_in']:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    world_ramdisk = os.path.join('/mnt/ramdisk', f"{server_name}_world")
+    backup_dir = os.path.join('/mnt/raid/minecraft', server_name, 'backups')
+    os.makedirs(backup_dir, exist_ok=True)
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    backup_name = f"world_{timestamp}.tar.gz"
+    backup_path = os.path.join(backup_dir, backup_name)
+
+    if not os.path.isdir(world_ramdisk):
+        return jsonify({'success': False, 'error': 'RAM-диск мира не найден'}), 400
+    try:
+        subprocess.check_call(['tar', '-czf', backup_path, '-C', world_ramdisk, '.'])
+        return jsonify({'success': True, 'backup': backup_name, 'message': 'Бекап успешно создан.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Ошибка при создании бекапа: {e}'}), 500
+
+@app.route('/server/<server_name>/backup_and_stop', methods=['POST'])
+def backup_and_stop(server_name):
+    if 'logged_in' not in session or not session['logged_in']:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    world_ramdisk = os.path.join('/mnt/ramdisk', f"{server_name}_world")
+    backup_dir = os.path.join('/mnt/raid/minecraft', server_name, 'backups')
+    os.makedirs(backup_dir, exist_ok=True)
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    backup_name = f"world_{timestamp}.tar.gz"
+    backup_path = os.path.join(backup_dir, backup_name)
+
+    if not os.path.isdir(world_ramdisk):
+        return jsonify({'success': False, 'error': 'RAM-диск мира не найден'}), 400
+    try:
+        subprocess.check_call(['tar', '-czf', backup_path, '-C', world_ramdisk, '.'])
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Ошибка при создании бекапа: {e}'}), 500
+
+    # Вызываем stop.sh для завершения процесса и размонтирования RAM-диска
+    script_path = os.path.join(
+        os.path.abspath(os.path.join(os.path.dirname(__file__), '..')),
+        server_name, "ramdisk-minecraft", "stop.sh"
+    )
+    if not os.path.isfile(script_path):
+        return jsonify({'success': False, 'error': 'stop.sh не найден'}), 500
+    try:
+        proc = subprocess.Popen([script_path])
+        return jsonify({'success': True, 'backup': backup_name, 'message': 'Бекап создан, сервер останавливается.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Ошибка при запуске stop.sh: {e}'}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8390, debug=True)

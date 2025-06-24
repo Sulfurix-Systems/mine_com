@@ -322,9 +322,12 @@
             </div>
             <div class="server-actions-group">
                 <div class="server-actions-row">
-                <button class="server-btn" onclick="serverAction('${server.name}', 'start', this)" ${server.active || server.busy ? "disabled" : ""}>Включить</button>
-                <button class="server-btn" onclick="serverAction('${server.name}', 'stop', this)" ${!server.active || server.busy ? "disabled" : ""}>Выключить</button>
-                <span class="busy-indicator" style="${server.busy ? "" : "display:none"}">⏳</span>
+                    <button class="server-btn" onclick="serverAction('${server.name}', 'start', this)" ${server.active || server.busy ? "disabled" : ""}>Включить</button>
+                    <!-- Кнопка "Бекап и остановить" заменяет "Выключить" -->
+                    <button class="server-btn" onclick="backupAndStopServer('${server.name}', this)" ${!server.active || server.busy ? "disabled" : ""}>Бекап и остановить</button>
+                    <!-- Принудительный бекап — всегда доступен когда сервер активен -->
+                    <button class="server-btn" onclick="backupOnlyServer('${server.name}', this)" ${!server.active ? "disabled" : ""}>Принудительный бекап</button>
+                    <span class="busy-indicator" style="${server.busy ? "" : "display:none"}">⏳</span>
                 </div>
                 <div class="server-actions-row">
                 <button class="server-btn log-btn" onclick="showLog('${server.name}')">Лог старта</button>
@@ -360,6 +363,55 @@
             `;
             return li;
         }
+
+        // --- Новые функции для кнопок бекапа ---
+        function backupAndStopServer(server, btn) {
+            btn.disabled = true;
+            btn.textContent = "Бекап и остановка...";
+            fetch(`/server/${server}/backup_and_stop`, { method: "POST" })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) {
+                        alert("Бекап создан и сервер останавливается!\nФайл: " + d.backup);
+                    } else {
+                        alert(d.error || "Ошибка при бекапе и остановке!");
+                    }
+                    updateServerStatus();
+                })
+                .catch(() => {
+                    alert("Ошибка запроса к серверу!");
+                    updateServerStatus();
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.textContent = "Бекап и остановить";
+                });
+        }
+
+        function backupOnlyServer(server, btn) {
+            btn.disabled = true;
+            btn.textContent = "Бекап...";
+            fetch(`/server/${server}/backup`, { method: "POST" })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) {
+                        alert("Принудительный бекап создан!\nФайл: " + d.backup);
+                    } else {
+                        alert(d.error || "Ошибка при бекапе!");
+                    }
+                    updateServerStatus();
+                })
+                .catch(() => {
+                    alert("Ошибка запроса к серверу!");
+                    updateServerStatus();
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.textContent = "Принудительный бекап";
+                });
+        }
+        // --- /Новые функции для кнопок бекапа ---
+
         function renderMiniMetricBlock(type, server) {
             return `
               <div class="mini-metric-item">
