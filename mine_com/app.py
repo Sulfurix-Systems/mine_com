@@ -669,12 +669,38 @@ def start_backup_async(server_name, backup_and_stop=False, threads=28):
                 backup_status[server_name] = "error"
                 backup_result[server_name] = {'filename': None, 'success': False, 'error': 'RAM-диск мира не найден'}
                 return
-            # Используем zstd на минимальной компрессии с многопоточностью
-            cmd = f'tar -cf - -C "{world_ramdisk}" . | zstd -T{threads} -1 -o "{backup_path}"'
-            ret = subprocess.run(cmd, shell=True)
-            if ret.returncode != 0:
+
+            # Архивация с явной проверкой ошибок пайпа (tar | zstd)
+            tar_proc = subprocess.Popen(
+                ['tar', '-cf', '-', '-C', world_ramdisk, '.'],
+                stdout=subprocess.PIPE
+            )
+            zstd_proc = subprocess.Popen(
+                ['zstd', '-T', str(threads), '-1', '-o', backup_path],
+                stdin=tar_proc.stdout,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            tar_proc.stdout.close()  # Позволяет tar получить SIGPIPE, если zstd выйдет
+            zstd_stdout, zstd_stderr = zstd_proc.communicate()
+            tar_proc.wait()
+
+            if tar_proc.returncode != 0:
                 backup_status[server_name] = "error"
-                backup_result[server_name] = {'filename': None, 'success': False, 'error': f'Ошибка архивации, код {ret.returncode}'}
+                backup_result[server_name] = {
+                    'filename': None,
+                    'success': False,
+                    'error': f'tar завершился с ошибкой: {tar_proc.returncode}'
+                }
+                return
+
+            if zstd_proc.returncode != 0:
+                backup_status[server_name] = "error"
+                backup_result[server_name] = {
+                    'filename': None,
+                    'success': False,
+                    'error': f'zstd завершился с ошибкой: {zstd_proc.returncode}, stderr: {zstd_stderr.decode(errors="ignore")}'
+                }
                 return
 
             if backup_and_stop:
@@ -683,7 +709,10 @@ def start_backup_async(server_name, backup_and_stop=False, threads=28):
                     server_name, "ramdisk-minecraft", "stop.sh"
                 )
                 if os.path.isfile(script_path):
-                    subprocess.Popen([script_path])
+                    print(f"Запуск остановки: {script_path}")
+                    subprocess.Popen(["bash", script_path])
+                else:
+                    print(f"stop.sh не найден: {script_path}")
 
             backup_status[server_name] = "idle"
             backup_result[server_name] = {'filename': backup_name, 'success': True, 'error': None}
