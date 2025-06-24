@@ -655,7 +655,7 @@ def backup_status_endpoint(server_name):
 backup_status = {}  # server_name: "idle"|"in_progress"|"error"
 backup_result = {}        # server_name: {'filename': ..., 'success': True/False, 'error': ...}
 
-def start_backup_async(server_name, backup_and_stop=False):
+def start_backup_async(server_name, backup_and_stop=False, threads=28):
     def run_backup():
         backup_status[server_name] = "in_progress"
         try:
@@ -663,14 +663,20 @@ def start_backup_async(server_name, backup_and_stop=False):
             backup_dir = os.path.join('/mnt/raid/minecraft', server_name, 'backups')
             os.makedirs(backup_dir, exist_ok=True)
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            backup_name = f"world_{timestamp}.tar.gz"
+            backup_name = f"world_{timestamp}.tar.zst"
             backup_path = os.path.join(backup_dir, backup_name)
             if not os.path.isdir(world_ramdisk):
                 backup_status[server_name] = "error"
                 backup_result[server_name] = {'filename': None, 'success': False, 'error': 'RAM-диск мира не найден'}
                 return
-            subprocess.check_call(['tar', '-czf', backup_path, '-C', world_ramdisk, '.'])
-            
+            # Используем zstd на минимальной компрессии с многопоточностью
+            cmd = f'tar -cf - -C "{world_ramdisk}" . | zstd -T{threads} -1 -o "{backup_path}"'
+            ret = subprocess.run(cmd, shell=True)
+            if ret.returncode != 0:
+                backup_status[server_name] = "error"
+                backup_result[server_name] = {'filename': None, 'success': False, 'error': f'Ошибка архивации, код {ret.returncode}'}
+                return
+
             if backup_and_stop:
                 script_path = os.path.join(
                     os.path.abspath(os.path.join(os.path.dirname(__file__), '..')),
@@ -678,6 +684,7 @@ def start_backup_async(server_name, backup_and_stop=False):
                 )
                 if os.path.isfile(script_path):
                     subprocess.Popen([script_path])
+
             backup_status[server_name] = "idle"
             backup_result[server_name] = {'filename': backup_name, 'success': True, 'error': None}
         except Exception as e:
