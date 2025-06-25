@@ -544,6 +544,78 @@
             if (text)
                 text.textContent = (percent !== undefined && percent !== null && !isNaN(percent)) ? `${percent}%` : '--%';
         }
+
+        function updateServerControlsUI(server, statusData) {
+            // Найдём элементы по селекторам
+            const li = document.querySelector(`.server-item[data-server="${server}"]`);
+            if (!li) return;
+
+            const btnStart = li.querySelector('.backup-btn-start');
+            const btnStopBackup = li.querySelector('.backup-btn-stop');
+            const btnBackupOnly = li.querySelector('.backup-btn-only');
+            const toggle = li.querySelector('.server-toggle');
+            const busyIndicator = li.querySelector('.busy-indicator');
+            const backupIndicator = document.getElementById(`backup-status-${server}`);
+
+            // --- Активен/Неактивен ---
+            const isActive = !!statusData.active;
+            toggle.textContent = isActive ? 'Активен' : 'Неактивен';
+            toggle.className = 'server-toggle ' + (isActive ? 'active' : 'inactive');
+
+            // --- Ожидание (busy or stopping) ---
+            const isBusy = !!statusData.busy || statusData.status === "stopping" || statusData.backup_status === "in_progress" || statusData.backup_status === "stopping";
+            busyIndicator.style.display = isBusy ? '' : 'none';
+
+            // --- Кнопки ---
+            if (btnStart) btnStart.disabled = isActive || isBusy;
+            if (btnStopBackup) btnStopBackup.disabled = !isActive || isBusy;
+            if (btnBackupOnly) btnBackupOnly.disabled = !isActive || isBusy;
+
+            // --- Надпись статуса бэкапа/остановки ---
+            if (backupIndicator) {
+                if (statusData.backup_status === "in_progress") {
+                    backupIndicator.textContent = "Бекап выполняется...";
+                    backupIndicator.classList.remove("error");
+                } else if (statusData.backup_status === "stopping") {
+                    backupIndicator.textContent = "Остановка сервера...";
+                    backupIndicator.classList.remove("error");
+                } else if (statusData.backup_status === "error") {
+                    backupIndicator.textContent = "Ошибка бэкапа!";
+                    backupIndicator.classList.add("error");
+                } else if (statusData.backup_status === "idle" && statusData.backup_result && statusData.backup_result.success && statusData.backup_result.filename) {
+                    backupIndicator.textContent = "Бекап завершён: " + statusData.backup_result.filename;
+                    backupIndicator.classList.remove("error");
+                } else {
+                    backupIndicator.textContent = "";
+                    backupIndicator.classList.remove("error");
+                }
+            }
+        }
+
+        function pollAllServersStatus() {
+            fetch('/server_status')
+                .then(r => r.json())
+                .then(data => {
+                    data.servers.forEach(server => {
+                        // Для каждого сервера запрашиваем его backup_status и собираем все данные
+                        Promise.all([
+                            fetch(`/server/${server.name}/backup_status`).then(r => r.json())
+                        ]).then(([backupStatus]) => {
+                            // Собираем общий объект статуса для updateServerControlsUI
+                            updateServerControlsUI(server.name, {
+                                active: server.active,
+                                busy: server.busy,
+                                status: server.status,
+                                backup_status: backupStatus.status,
+                                backup_result: backupStatus,
+                            });
+                        });
+                    });
+                })
+                .finally(() => {
+                    setTimeout(pollAllServersStatus, 1000);
+                });
+        }
         // --- /Миниметрики ---
 
         function updateResources() {
@@ -997,6 +1069,7 @@
         updateResources();
         fetchServersAndRender();
         fetchAndUpdateMiniMetrics();
+        pollAllServersStatus();
         fetch('/server_status')
             .then(r => r.json())
             .then(data => {
