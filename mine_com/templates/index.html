@@ -659,6 +659,8 @@
         function hideCreateServerModal() {
             document.getElementById('createServerModal').style.display = 'none';
         }
+        let restorePollingTimer = null;
+
         function createServer() {
             const name = document.getElementById('new-server-name').value;
             const version = document.getElementById('neoforge-version').value;
@@ -1091,7 +1093,8 @@
         function confirmBackupAndStart() {
             const backup = document.getElementById('backup-selector').value;
             const status = document.getElementById('backup-restore-status');
-            status.textContent = '';
+            status.style.color = "";
+            status.textContent = "";
             if (!backup) {
                 status.textContent = 'Выберите бекап!';
                 return;
@@ -1104,10 +1107,7 @@
             .then(r => r.json())
             .then(d => {
                 if (d.success) {
-                    status.style.color = "green";
-                    status.textContent = "Сервер запускается!";
-                    setTimeout(hideSelectBackupModal, 1000);
-                    updateServerStatus();
+                    showRestoreProgress(currentStartServer);
                 } else {
                     status.style.color = "red";
                     status.textContent = d.error || "Ошибка!";
@@ -1116,6 +1116,36 @@
             .catch(() => {
                 status.textContent = "Ошибка запроса к серверу!";
             });
+        }
+
+        function showRestoreProgress(server) {
+            const status = document.getElementById('backup-restore-status');
+            status.innerHTML = 'Распаковка бекапа: <progress id="restore-progress-bar" value="0" max="100"></progress> <span id="restore-progress-label">0%</span>';
+            pollRestoreProgress(server);
+        }
+
+        function pollRestoreProgress(server) {
+            fetch(`/server/${server}/restore_progress`)
+                .then(r => r.json())
+                .then(d => {
+                    if (d.status === "extracting") {
+                        let prog = d.progress || 0;
+                        document.getElementById('restore-progress-bar').value = prog;
+                        document.getElementById('restore-progress-label').textContent = prog + "%";
+                        restorePollingTimer = setTimeout(() => pollRestoreProgress(server), 700);
+                    } else if (d.status === "done") {
+                        document.getElementById('restore-progress-bar').value = 100;
+                        document.getElementById('restore-progress-label').textContent = "100%";
+                        setTimeout(() => {
+                            document.getElementById('backup-restore-status').textContent = "Готово: сервер запускается!";
+                            hideSelectBackupModal();
+                            updateServerStatus();
+                        }, 800);
+                    } else {
+                        document.getElementById('backup-restore-status').textContent = "Ждём начала восстановления...";
+                        restorePollingTimer = setTimeout(() => pollRestoreProgress(server), 700);
+                    }
+                });
         }
 
         setInterval(updateResources, 2500);

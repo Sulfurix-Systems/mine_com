@@ -21,6 +21,7 @@ os.makedirs(LOGS_DIR, exist_ok=True)
 
 server_processes = {}
 busy_pids = {}
+restore_progress = {}
 
 USERNAME = 'admin'
 PASSWORD = 'password123'
@@ -113,6 +114,34 @@ def logout():
     flash('Вы вышли из системы', 'success')
     return redirect(url_for('login'))
 
+
+
+def extract_backup(server_name, backup_path, world_path):
+    import tarfile, os
+    total_size = os.path.getsize(backup_path)
+    extracted_size = 0
+    restore_progress[server_name] = {
+        "status": "extracting",
+        "backup": os.path.basename(backup_path),
+        "progress": 0,
+        "total": total_size
+    }
+    with tarfile.open(backup_path, "r:*") as tar:
+        for member in tar:
+            tar.extract(member, world_path)
+            extracted_size += member.size if hasattr(member, "size") else 0
+            prog = min(int(extracted_size / total_size * 100), 100)
+            restore_progress[server_name]["progress"] = prog
+    restore_progress[server_name] = {
+        "status": "done",
+        "backup": os.path.basename(backup_path),
+        "progress": 100,
+        "total": total_size
+    }
+
+@app.route("/server/<server_name>/restore_progress")
+def get_restore_progress(server_name):
+    return jsonify(restore_progress.get(server_name, {"status": "idle", "progress": 0}))
 
 @app.route('/server/<server_name>/rcon', methods=['POST'])
 def rcon_command(server_name):
@@ -671,15 +700,46 @@ def restore_and_start(server_name):
     if os.path.exists(world_path):
         shutil.rmtree(world_path)
     os.makedirs(world_path, exist_ok=True)
-    # Разархивировать
-    cmd = f'tar -I zstd -xf "{backup_path}" -C "{world_path}"'
-    ret = os.system(cmd)
-    if ret != 0:
-        return jsonify({'success': False, 'error': 'Ошибка разархивации'})
-    # Запустить сервер
-    script_path = f'/путь/до/{server_name}/ramdisk-minecraft/start.sh'
-    subprocess.Popen(['bash', script_path])
+    # Запустить восстановление в отдельном потоке, чтобы не блокировать Flask
+    threading.Thread(target=extract_backup_with_progress, args=(server_name, backup_path, world_path)).start()
     return jsonify({'success': True})
+
+
+def extract_backup_with_progress(server_name, backup_path, world_path):
+    try:
+        total_size = os.path.getsize(backup_path)
+        extracted_size = 0
+        restore_progress[server_name] = {
+            "status": "extracting",
+            "backup": os.path.basename(backup_path),
+            "progress": 0,
+            "total": total_size
+        }
+        # Используем tarfile для пофайлового контроля прогресса
+        with tarfile.open(backup_path, "r|*") as tar:
+            for member in tar:
+                tar.extract(member, world_path)
+                # member.size может быть None для каталогов
+                if hasattr(member, "size") and member.size:
+                    extracted_size += member.size
+                prog = min(int(extracted_size / total_size * 100), 100)
+                restore_progress[server_name]["progress"] = prog
+        restore_progress[server_name] = {
+            "status": "done",
+            "backup": os.path.basename(backup_path),
+            "progress": 100,
+            "total": total_size
+        }
+        # После успешной распаковки — запуск сервера
+        script_path = f'/путь/до/{server_name}/ramdisk-minecraft/start.sh'
+        subprocess.Popen(['bash', script_path])
+    except Exception as e:
+        restore_progress[server_name] = {
+            "status": "error",
+            "backup": os.path.basename(backup_path),
+            "progress": 0,
+            "error": str(e)
+        }
 
 backup_status = {}  # server_name: "idle"|"in_progress"|"error"
 backup_result = {}        # server_name: {'filename': ..., 'success': True/False, 'error': ...}
