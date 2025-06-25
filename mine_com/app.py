@@ -557,6 +557,8 @@ def run_server_script(server_name, script_name):
     try:
         with open(log_file, "w") as f:
             proc = subprocess.Popen([script_path], stdout=f, stderr=subprocess.STDOUT)
+        # Сохраняем pid именно этого процесса
+        busy_pids[server_name] = proc.pid
         return True, f"Скрипт запущен (pid {proc.pid}). Лог пишется.", proc.pid
     except Exception as e:
         return False, f"Ошибка запуска: {e}", None
