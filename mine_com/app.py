@@ -694,14 +694,14 @@ def restore_and_start(server_name):
     data = request.json
     backup_file = data.get('backup')
     backup_path = f'/mnt/raid/minecraft/{server_name}/backups/{backup_file}'
-    world_path = f'/mnt/ramdisk/{server_name}_world'
+    world_path = f'/mnt/raid/minecraft/{server_name}/world/'
     if not os.path.isfile(backup_path):
         return jsonify({'success': False, 'error': 'Бекап не найден'})
-    # Очистить world
+    # Очистить папку мира
     if os.path.exists(world_path):
         shutil.rmtree(world_path)
     os.makedirs(world_path, exist_ok=True)
-    # Простая разархивация с помощью системного tar
+    # Разархивировать архив в папку мира
     cmd = f'tar -I zstd -xf "{backup_path}" -C "{world_path}"'
     ret = os.system(cmd)
     if ret != 0:
