@@ -955,6 +955,24 @@
                 }
             });
         }
+        function pollServerStatus(server) {
+            fetch(`/server/${server}/status`)
+                .then(resp => resp.json())
+                .then(status => {
+                    // Функция updateStatusUI должна обновлять DOM по статусу сервера
+                    updateStatusUI(server, status);
+                })
+                .finally(() => {
+                    setTimeout(() => pollServerStatus(server), 2000);
+                });
+        }
+
+        // Эта функция должна обновлять UI для каждого сервера (например, запуск/остановка кнопок)
+        function updateStatusUI(server, status) {
+            // Например, чтобы перерисовать весь список серверов:
+            fetchServersAndRender();
+            // Или можно более умно обновлять только нужные кнопки/индикаторы
+        }
         function escapeHtml(text) {
             if (!text) return '';
             return text.replace(/[<>"'&]/g, function (c) {
@@ -974,6 +992,14 @@
         updateResources();
         fetchServersAndRender();
         fetchAndUpdateMiniMetrics();
+        fetch('/server_status')
+            .then(r => r.json())
+            .then(data => {
+                data.servers.forEach(server => {
+                    pollServerStatus(server.name);
+                    pollBackupStatus(server.name);
+                });
+            });
     </script>
 </body>
 </html>
