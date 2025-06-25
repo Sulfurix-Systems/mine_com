@@ -683,8 +683,17 @@ def start_backup_async(server_name, backup_and_stop=False, threads=28):
                     server_name, "ramdisk-minecraft", "stop.sh"
                 )
                 if os.path.isfile(script_path):
-                    subprocess.Popen([script_path])
-
+                    backup_status[server_name] = "stopping"
+                    stop_result = subprocess.run([script_path], capture_output=True)
+                    if stop_result.returncode != 0:
+                        backup_status[server_name] = "error"
+                        backup_result[server_name] = {
+                            'filename': backup_name,
+                            'success': False,
+                            'error': f"stop.sh завершился с ошибкой: {stop_result.returncode} {stop_result.stderr.decode(errors='ignore')}"
+                        }
+                        return
+            # после всего
             backup_status[server_name] = "idle"
             backup_result[server_name] = {'filename': backup_name, 'success': True, 'error': None}
         except Exception as e:
