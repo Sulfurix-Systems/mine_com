@@ -9,6 +9,7 @@ import zipfile
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from mcipc.rcon.je import Client as RconClient
 import threading
+import tarfile
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey123'
@@ -706,6 +707,7 @@ def restore_and_start(server_name):
 
 
 def extract_backup_with_progress(server_name, backup_path, world_path):
+    print("Старт распаковки", backup_path)
     try:
         total_size = os.path.getsize(backup_path)
         extracted_size = 0
@@ -715,6 +717,7 @@ def extract_backup_with_progress(server_name, backup_path, world_path):
             "progress": 0,
             "total": total_size
         }
+        print("Установлен статус extracting")
         # Используем tarfile для пофайлового контроля прогресса
         with tarfile.open(backup_path, "r|*") as tar:
             for member in tar:
@@ -734,6 +737,7 @@ def extract_backup_with_progress(server_name, backup_path, world_path):
         script_path = f'/путь/до/{server_name}/ramdisk-minecraft/start.sh'
         subprocess.Popen(['bash', script_path])
     except Exception as e:
+        print("Ошибка при распаковке:", e)
         restore_progress[server_name] = {
             "status": "error",
             "backup": os.path.basename(backup_path),
