@@ -332,7 +332,7 @@
                     <button class="server-btn backup-btn-start" onclick="serverAction('${server.name}', 'start', this)" ${server.active || server.busy ? "disabled" : ""}>Включить</button>
                     <button class="server-btn backup-btn-stop" onclick="backupAndStopServer('${server.name}', this)" ${!server.active || server.busy ? "disabled" : ""}>Бекап и остановить</button>
                     <button class="server-btn backup-btn-only" onclick="backupOnlyServer('${server.name}', this)" ${!server.active ? "disabled" : ""}>Принудительный бекап</button>
-                    <span class="busy-indicator" style="${server.busy ? "" : "display:none"}">⏳</span>
+                    <span class="busy-indicator" style="${server.busy || server.status === 'stopping' ? "" : "display:none"}">⏳</span>
                     <span class="backup-status-indicator" id="backup-status-${server.name}"></span>
                 </div>
                 <!-- ... остальные кнопки без изменений ... -->
@@ -412,6 +412,7 @@
             .then(r => r.json())
             .then(d => {
                 const backupInProgress = d.status === "in_progress";
+                const backupStopping = d.status === "stopping";
                 // Получаем инфу о сервере из DOM (наличие класса active у .server-toggle)
                 const li = document.querySelector(`.server-item[data-server="${server}"]`);
                 let isActive = false;
@@ -424,13 +425,17 @@
                 const btnBackup = document.querySelector(`.backup-btn-only[onclick*="backupOnlyServer('${server}'"]`);
                 const btnBackupStop = document.querySelector(`.backup-btn-stop[onclick*="backupAndStopServer('${server}'"]`);
                 const indicator = document.getElementById(`backup-status-${server}`);
-                // Кнопки бэкапа блокируются если неактивен сервер или идет бэкап
-                if (btnBackup) btnBackup.disabled = backupInProgress || !isActive;
-                if (btnBackupStop) btnBackupStop.disabled = backupInProgress || !isActive;
+
+                // Кнопки бэкапа блокируются если неактивен сервер или идет бэкап/остановка
+                if (btnBackup) btnBackup.disabled = backupInProgress || backupStopping || !isActive;
+                if (btnBackupStop) btnBackupStop.disabled = backupInProgress || backupStopping || !isActive;
 
                 // Информатор рядом с кнопкой
                 if (backupInProgress) {
                     indicator.textContent = "Бекап выполняется...";
+                    indicator.classList.remove("error");
+                } else if (backupStopping) {
+                    indicator.textContent = "Остановка сервера...";
                     indicator.classList.remove("error");
                 } else if (d.status === "error") {
                     indicator.textContent = "Ошибка бэкапа!";
@@ -445,8 +450,8 @@
                     indicator.classList.remove("error");
                 }
 
-                // Если бэкап ещё не завершён — продолжаем polling
-                if (backupInProgress) {
+                // Если бэкап ещё не завершён или идет остановка — продолжаем polling
+                if (backupInProgress || backupStopping) {
                     setTimeout(() => pollBackupStatus(server), 2000);
                 }
             });
