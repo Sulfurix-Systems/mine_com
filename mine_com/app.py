@@ -805,14 +805,13 @@ def start_backup_async(server_name, backup_and_stop=False, threads=28):
             world_ramdisk = os.path.join('/mnt/ramdisk', f"{server_name}_world")
             backup_dir = os.path.join('/mnt/raid/minecraft', server_name, 'backups')
             os.makedirs(backup_dir, exist_ok=True)
-            timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d_%H-%M-%S")
             backup_name = f"world_{timestamp}.tar.zst"
             backup_path = os.path.join(backup_dir, backup_name)
             if not os.path.isdir(world_ramdisk):
                 backup_status[server_name] = "error"
-                backup_result[server_name] = {'filename': None, 'success': False, 'error': 'RAM-диск мира не найден'}
+                backup_result[server_name] = {'filename': None, 'success': False, 'error': 'RAM world dir not found'}
                 return
-            # Используем zstd на минимальной компрессии с многопоточностью
             cmd = f'tar -cf - -C "{world_ramdisk}" . | zstd -T{threads} -1 -o "{backup_path}"'
             ret = subprocess.run(cmd, shell=True, capture_output=True)
             if ret.returncode != 0:
@@ -826,9 +825,8 @@ def start_backup_async(server_name, backup_and_stop=False, threads=28):
                         f'stderr: {ret.stderr.decode(errors="ignore")}'
                     )
                 }
-                print(backup_result[server_name])  # For debugging in logs
+                print(backup_result[server_name])
                 return
-
             if backup_and_stop:
                 script_path = os.path.join(
                     os.path.abspath(os.path.join(os.path.dirname(__file__), '..')),
@@ -842,12 +840,12 @@ def start_backup_async(server_name, backup_and_stop=False, threads=28):
                         backup_result[server_name] = {
                             'filename': backup_name,
                             'success': False,
-                            'error': f"stop.sh завершился с ошибкой: {stop_result.returncode} {stop_result.stderr.decode(errors='ignore')}"
+                            'error': f"stop.sh failed: {stop_result.returncode} {stop_result.stderr.decode(errors='ignore')}"
                         }
                         return
-            # после всего
             backup_status[server_name] = "idle"
             backup_result[server_name] = {'filename': backup_name, 'success': True, 'error': None}
+            cleanup_old_backups(backup_dir, keep=10)  # <-- HERE
         except Exception as e:
             backup_status[server_name] = "error"
             backup_result[server_name] = {'filename': None, 'success': False, 'error': str(e)}
@@ -904,6 +902,15 @@ def get_all_server_names():
                   and d not in ("mine_com", "logs", ".git", "precreated_server_prefab")]
     return all_servers
 
+def cleanup_old_backups(backup_dir, keep=10):
+    files = [os.path.join(backup_dir, f) for f in os.listdir(backup_dir) if f.endswith('.tar.zst')]
+    files = sorted(files, key=os.path.getmtime, reverse=True)
+    for f in files[keep:]:
+        try:
+            os.remove(f)
+            print(f"[Autobackup] Deleted old backup: {f}")
+        except Exception as ex:
+            print(f"[Autobackup] Failed to delete {f}: {ex}")
 
 def autobackup_loop():
     print("[Autobackup] Thread started")
