@@ -651,6 +651,35 @@ def backup_status_endpoint(server_name):
     result = backup_result.get(server_name, {})
     return jsonify({'status': status, **result})
 
+@app.route('/server/<server_name>/backups', methods=['GET'])
+def list_backups(server_name):
+    backup_dir = f'/mnt/raid/minecraft/{server_name}/backups'
+    if not os.path.isdir(backup_dir):
+        return jsonify({'backups': []})
+    files = sorted([f for f in os.listdir(backup_dir) if f.endswith('.tar.zst')], reverse=True)
+    return jsonify({'backups': files})
+
+@app.route('/server/<server_name>/restore_and_start', methods=['POST'])
+def restore_and_start(server_name):
+    data = request.json
+    backup_file = data.get('backup')
+    backup_path = f'/mnt/raid/minecraft/{server_name}/backups/{backup_file}'
+    world_path = f'/mnt/ramdisk/{server_name}_world'
+    if not os.path.isfile(backup_path):
+        return jsonify({'success': False, 'error': 'Бекап не найден'})
+    # Очистить world
+    if os.path.exists(world_path):
+        shutil.rmtree(world_path)
+    os.makedirs(world_path, exist_ok=True)
+    # Разархивировать
+    cmd = f'tar -I zstd -xf "{backup_path}" -C "{world_path}"'
+    ret = os.system(cmd)
+    if ret != 0:
+        return jsonify({'success': False, 'error': 'Ошибка разархивации'})
+    # Запустить сервер
+    script_path = f'/путь/до/{server_name}/ramdisk-minecraft/start.sh'
+    subprocess.Popen(['bash', script_path])
+    return jsonify({'success': True})
 
 backup_status = {}  # server_name: "idle"|"in_progress"|"error"
 backup_result = {}        # server_name: {'filename': ..., 'success': True/False, 'error': ...}

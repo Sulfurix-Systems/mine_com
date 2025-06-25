@@ -329,7 +329,7 @@
             </div>
             <div class="server-actions-group">
                 <div class="server-actions-row">
-                    <button class="server-btn backup-btn-start" onclick="serverAction('${server.name}', 'start', this)" ${server.active || server.busy ? "disabled" : ""}>Включить</button>
+                    <button class="server-btn backup-btn-start" onclick="showSelectBackupModal('${server.name}')" ${server.active || server.busy ? "disabled" : ""}>Включить</button>
                     <button class="server-btn backup-btn-stop" onclick="backupAndStopServer('${server.name}', this)" ${!server.active || server.busy ? "disabled" : ""}>Бекап и остановить</button>
                     <button class="server-btn backup-btn-only" onclick="backupOnlyServer('${server.name}', this)" ${!server.active ? "disabled" : ""}>Принудительный бекап</button>
                     <span class="busy-indicator" style="${server.busy || server.status === 'stopping' ? "" : "display:none"}">⏳</span>
@@ -1063,6 +1063,61 @@
             });
         }
 
+        let currentStartServer = null;
+
+        function showSelectBackupModal(server) {
+            currentStartServer = server;
+            document.getElementById('backup-restore-status').textContent = '';
+            document.getElementById('selectBackupModal').style.display = 'flex';
+            fetch(`/server/${server}/backups`)
+                .then(r => r.json())
+                .then(d => {
+                    const selector = document.getElementById('backup-selector');
+                    selector.innerHTML = '';
+                    d.backups.forEach(f => {
+                        const opt = document.createElement('option');
+                        opt.value = f;
+                        opt.textContent = f;
+                        selector.appendChild(opt);
+                    });
+                });
+        }
+
+        function hideSelectBackupModal() {
+            document.getElementById('selectBackupModal').style.display = 'none';
+            currentStartServer = null;
+        }
+
+        function confirmBackupAndStart() {
+            const backup = document.getElementById('backup-selector').value;
+            const status = document.getElementById('backup-restore-status');
+            status.textContent = '';
+            if (!backup) {
+                status.textContent = 'Выберите бекап!';
+                return;
+            }
+            fetch(`/server/${currentStartServer}/restore_and_start`, {
+                method: "POST",
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({backup: backup})
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    status.style.color = "green";
+                    status.textContent = "Сервер запускается!";
+                    setTimeout(hideSelectBackupModal, 1000);
+                    updateServerStatus();
+                } else {
+                    status.style.color = "red";
+                    status.textContent = d.error || "Ошибка!";
+                }
+            })
+            .catch(() => {
+                status.textContent = "Ошибка запроса к серверу!";
+            });
+        }
+
         setInterval(updateResources, 2500);
         setInterval(fetchAndUpdateMiniMetrics, 2000);
 
@@ -1079,5 +1134,16 @@
                 });
             });
     </script>
+    <div id="selectBackupModal" style="display:none; position:fixed; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:10000; justify-content:center; align-items:center;">
+        <div style="background:#fff; padding:20px; border-radius:10px; min-width:320px;">
+            <h3>Выберите бекап для загрузки</h3>
+            <select id="backup-selector" style="width:100%;"></select>
+            <div style="margin-top:15px;">
+                <button onclick="confirmBackupAndStart()">Загрузить и запустить</button>
+                <button onclick="hideSelectBackupModal()">Отмена</button>
+            </div>
+            <span id="backup-restore-status" style="margin-left:10px; color:red;"></span>
+        </div>
+    </div>
 </body>
 </html>
