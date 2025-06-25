@@ -141,6 +141,7 @@ def extract_backup(server_name, backup_path, world_path):
         "total": total_size
     }
 
+
 @app.route("/server/<server_name>/restore_progress")
 def get_restore_progress(server_name):
     return jsonify(restore_progress.get(server_name, {"status": "idle", "progress": 0}))
@@ -702,8 +703,8 @@ def restore_and_start(server_name):
     if os.path.exists(world_path):
         shutil.rmtree(world_path)
     os.makedirs(world_path, exist_ok=True)
-    # Запустить распаковку в отдельном потоке
-    threading.Thread(target=extract_zst_tar_with_progress, args=(server_name, backup_path, world_path)).start()
+    # Всё делаем в потоке!
+    threading.Thread(target=extract_zst_tar_with_progress_and_start, args=(server_name, backup_path, world_path)).start()
     return jsonify({'success': True})
 
 
@@ -838,6 +839,44 @@ def start_backup_async(server_name, backup_and_stop=False, threads=28):
     t = threading.Thread(target=run_backup, daemon=True)
     t.start()
     return True
+
+def extract_zst_tar_with_progress_and_start(server_name, backup_path, world_path):
+    try:
+        total_size = os.path.getsize(backup_path)
+        extracted_size = 0
+        restore_progress[server_name] = {
+            "status": "extracting",
+            "backup": os.path.basename(backup_path),
+            "progress": 0,
+            "total": total_size
+        }
+        with open(backup_path, 'rb') as compressed:
+            dctx = zstd.ZstdDecompressor()
+            with dctx.stream_reader(compressed) as reader:
+                with tarfile.open(fileobj=reader, mode='r|') as tar:
+                    for member in tar:
+                        tar.extract(member, world_path)
+                        if getattr(member, "size", None):
+                            extracted_size += member.size
+                            prog = min(int(extracted_size / total_size * 100), 100)
+                            restore_progress[server_name]["progress"] = prog
+        restore_progress[server_name] = {
+            "status": "done",
+            "backup": os.path.basename(backup_path),
+            "progress": 100,
+            "total": total_size
+        }
+        # Запуск сервера!
+        script_path = f'/путь/до/{server_name}/ramdisk-minecraft/start.sh'
+        subprocess.Popen(['bash', script_path])
+    except Exception as e:
+        restore_progress[server_name] = {
+            "status": "error",
+            "backup": os.path.basename(backup_path),
+            "progress": 0,
+            "error": str(e)
+        }
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8390, debug=True)
