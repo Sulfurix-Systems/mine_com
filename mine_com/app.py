@@ -701,7 +701,14 @@ def restore_and_start(server_name):
     if os.path.exists(world_path):
         shutil.rmtree(world_path)
     os.makedirs(world_path, exist_ok=True)
-    threading.Thread(target=extract_zst_tar_with_progress, args=(server_name, backup_path, world_path)).start()
+    # Простая разархивация с помощью системного tar
+    cmd = f'tar -I zstd -xf "{backup_path}" -C "{world_path}"'
+    ret = os.system(cmd)
+    if ret != 0:
+        return jsonify({'success': False, 'error': 'Ошибка разархивации'})
+    # Запустить сервер
+    script_path = f'/путь/до/{server_name}/ramdisk-minecraft/start.sh'
+    subprocess.Popen(['bash', script_path])
     return jsonify({'success': True})
 
 
