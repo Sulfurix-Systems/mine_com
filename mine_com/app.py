@@ -701,9 +701,48 @@ def restore_and_start(server_name):
     if os.path.exists(world_path):
         shutil.rmtree(world_path)
     os.makedirs(world_path, exist_ok=True)
-    # Запустить восстановление в отдельном потоке, чтобы не блокировать Flask
-    threading.Thread(target=extract_backup_with_progress, args=(server_name, backup_path, world_path)).start()
+    threading.Thread(target=extract_zst_tar_with_progress, args=(server_name, backup_path, world_path)).start()
     return jsonify({'success': True})
+
+
+def extract_zst_tar_with_progress(server_name, backup_path, world_path):
+    try:
+        total_size = os.path.getsize(backup_path)
+        extracted_size = 0
+        restore_progress[server_name] = {
+            "status": "extracting",
+            "backup": os.path.basename(backup_path),
+            "progress": 0,
+            "total": total_size
+        }
+        # Открываем архив как поток, распаковываем через zstd, читаем tarfile пофайлово
+        with open(backup_path, 'rb') as compressed:
+            dctx = zstd.ZstdDecompressor()
+            with dctx.stream_reader(compressed) as reader:
+                with tarfile.open(fileobj=reader, mode='r|') as tar:
+                    for member in tar:
+                        tar.extract(member, world_path)
+                        # member.size может быть None (например, для директорий)
+                        if hasattr(member, "size") and member.size:
+                            extracted_size += member.size
+                            prog = min(int(extracted_size / total_size * 100), 100)
+                            restore_progress[server_name]["progress"] = prog
+        restore_progress[server_name] = {
+            "status": "done",
+            "backup": os.path.basename(backup_path),
+            "progress": 100,
+            "total": total_size
+        }
+        # Запускаем сервер только после успешного восстановления
+        script_path = f'/путь/до/{server_name}/ramdisk-minecraft/start.sh'
+        subprocess.Popen(['bash', script_path])
+    except Exception as e:
+        restore_progress[server_name] = {
+            "status": "error",
+            "backup": os.path.basename(backup_path),
+            "progress": 0,
+            "error": str(e)
+        }
 
 
 def extract_backup_with_progress(server_name, backup_path, world_path):
