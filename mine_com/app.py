@@ -669,35 +669,22 @@ def start_backup_async(server_name, backup_and_stop=False, threads=28):
                 backup_status[server_name] = "error"
                 backup_result[server_name] = {'filename': None, 'success': False, 'error': 'RAM-диск мира не найден'}
                 return
-
-            # Используем пайп с явным выводом ошибок
-            tar_cmd = ['tar', '-cf', '-', '-C', world_ramdisk, '.']
-            zstd_cmd = ['zstd', '-T', str(threads), '-1', '-o', backup_path]
-            tar_proc = subprocess.Popen(tar_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            zstd_proc = subprocess.Popen(zstd_cmd, stdin=tar_proc.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            tar_proc.stdout.close()
-
-            zstd_stdout, zstd_stderr = zstd_proc.communicate()
-            tar_stdout, tar_stderr = tar_proc.communicate()
-
-            if tar_proc.returncode != 0:
+            # Используем zstd на минимальной компрессии с многопоточностью
+            cmd = f'tar -cf - -C "{world_ramdisk}" . | zstd -T{threads} -1 -o "{backup_path}"'
+            ret = subprocess.run(cmd, shell=True)
+            if ret.returncode != 0:
                 backup_status[server_name] = "error"
-                backup_result[server_name] = {
-                    'filename': None,
-                    'success': False,
-                    'error': f'tar завершился с ошибкой: {tar_proc.returncode}, stderr: {tar_stderr.decode(errors="ignore")}'
-                }
-                return
-            if zstd_proc.returncode != 0:
-                backup_status[server_name] = "error"
-                backup_result[server_name] = {
-                    'filename': None,
-                    'success': False,
-                    'error': f'zstd завершился с ошибкой: {zstd_proc.returncode}, stderr: {zstd_stderr.decode(errors="ignore")}'
-                }
+                backup_result[server_name] = {'filename': None, 'success': False, 'error': f'Ошибка архивации, код {ret.returncode}'}
                 return
 
-            # ... (остальной код)
+            if backup_and_stop:
+                script_path = os.path.join(
+                    os.path.abspath(os.path.join(os.path.dirname(__file__), '..')),
+                    server_name, "ramdisk-minecraft", "stop.sh"
+                )
+                if os.path.isfile(script_path):
+                    subprocess.Popen([script_path])
+
             backup_status[server_name] = "idle"
             backup_result[server_name] = {'filename': backup_name, 'success': True, 'error': None}
         except Exception as e:
