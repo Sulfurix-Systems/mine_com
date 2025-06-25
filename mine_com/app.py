@@ -697,6 +697,12 @@ def restore_and_start(server_name):
     world_path = f'/mnt/raid/minecraft/{server_name}/world/'
     if not os.path.isfile(backup_path):
         return jsonify({'success': False, 'error': 'Бекап не найден'})
+    # Установить статус: начинаем
+    restore_progress[server_name] = {
+        "status": "extracting",
+        "progress": 0,
+        "backup": backup_file
+    }
     # Очистить папку мира
     if os.path.exists(world_path):
         shutil.rmtree(world_path)
@@ -704,12 +710,24 @@ def restore_and_start(server_name):
     # Разархивировать архив в папку мира
     cmd = f'tar -I zstd -xf "{backup_path}" -C "{world_path}"'
     ret = os.system(cmd)
-    if ret != 0:
+    if ret == 0:
+        # Статус: завершено
+        restore_progress[server_name] = {
+            "status": "done",
+            "progress": 100,
+            "backup": backup_file
+        }
+        # Запустить сервер
+        script_path = f'/путь/до/{server_name}/ramdisk-minecraft/start.sh'
+        subprocess.Popen(['bash', script_path])
+        return jsonify({'success': True})
+    else:
+        restore_progress[server_name] = {
+            "status": "error",
+            "progress": 0,
+            "backup": backup_file
+        }
         return jsonify({'success': False, 'error': 'Ошибка разархивации'})
-    # Запустить сервер
-    script_path = f'/путь/до/{server_name}/ramdisk-minecraft/start.sh'
-    subprocess.Popen(['bash', script_path])
-    return jsonify({'success': True})
 
 
 def extract_zst_tar_with_progress(server_name, backup_path, world_path):
