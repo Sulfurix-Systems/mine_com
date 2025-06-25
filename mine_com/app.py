@@ -11,6 +11,8 @@ from mcipc.rcon.je import Client as RconClient
 import threading
 import tarfile
 import zstandard as zstd
+import time
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey123'
@@ -888,6 +890,57 @@ def extract_zst_tar_with_progress_and_start(server_name, backup_path, world_path
             "error": str(e)
         }
 
+def get_all_server_names():
+    all_servers = [d for d in os.listdir(MINECRAFT_SERVERS_DIR)
+                  if os.path.isdir(os.path.join(MINECRAFT_SERVERS_DIR, d))
+                  and d not in ("mine_com", "logs", ".git", "precreated_server_prefab")]
+    return all_servers
+
+def autobackup_loop():
+    print("[Автобекап] Поток запущен")
+    while True:
+        wait_until_next_half_hour()
+        print(f"[{datetime.utcnow()}] Автобекап: старт цикла")
+        servers = get_all_server_names()  # <--- Теперь список серверов актуальный!
+        for server in servers:
+            if is_server_running(server):
+                print(f"[{datetime.utcnow()}] Автобекап: {server} ЗАПУЩЕН, создаю бэкап")
+                if backup_status.get(server) != "in_progress":
+                    start_backup_async(server, backup_and_stop=False)
+            else:
+                print(f"[{datetime.utcnow()}] Автобекап: {server} не запущен, пропуск")
+
+def wait_until_next_half_hour():
+    """Ждёт до ближайших :00 или :30 по глобальному времени."""
+    now = datetime.utcnow()
+    minute = now.minute
+    second = now.second
+    microsecond = now.microsecond
+    if minute < 30:
+        next_time = now.replace(minute=30, second=0, microsecond=0)
+    else:
+        # К следующему часу
+        next_hour = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+        next_time = next_hour
+    delta = (next_time - now).total_seconds()
+    if delta > 0:
+        time.sleep(delta)
+
+def is_server_running(server_name):
+    """Проверяет, запущен ли контейнер сервера."""
+    try:
+        output = subprocess.check_output(
+            ["docker", "ps", "--filter", f"name=^{server_name}-server$", "--format", "{{.ID}}"],
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+        return bool(output)
+    except Exception:
+        return False
+
+def start_autobackup_thread():
+    t = threading.Thread(target=autobackup_loop, daemon=True)
+    t.start()
 
 if __name__ == '__main__':
+    start_autobackup_thread()
     app.run(host='0.0.0.0', port=8390, debug=True)
