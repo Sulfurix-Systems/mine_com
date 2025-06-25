@@ -736,7 +736,10 @@ def extract_zst_tar_with_progress(server_name, backup_path, world_path):
             "total": total_size
         }
         # Запустить сервер
-        script_path = f'/путь/до/{server_name}/ramdisk-minecraft/start.sh'
+        script_path = os.path.join(
+                    os.path.abspath(os.path.join(os.path.dirname(__file__), '..')),
+                    server_name, "ramdisk-minecraft", "start.sh"
+                )
         subprocess.Popen(['bash', script_path])
     except Exception as e:
         restore_progress[server_name] = {
@@ -775,7 +778,10 @@ def extract_backup_with_progress(server_name, backup_path, world_path):
             "total": total_size
         }
         # После успешной распаковки — запуск сервера
-        script_path = f'/путь/до/{server_name}/ramdisk-minecraft/start.sh'
+        script_path = os.path.join(
+                    os.path.abspath(os.path.join(os.path.dirname(__file__), '..')),
+                    server_name, "ramdisk-minecraft", "start.sh"
+                )
         subprocess.Popen(['bash', script_path])
     except Exception as e:
         print("Ошибка при распаковке:", e)
@@ -867,7 +873,10 @@ def extract_zst_tar_with_progress_and_start(server_name, backup_path, world_path
             "total": total_size
         }
         # Запуск сервера!
-        script_path = f'/путь/до/{server_name}/ramdisk-minecraft/start.sh'
+        script_path = os.path.join(
+                    os.path.abspath(os.path.join(os.path.dirname(__file__), '..')),
+                    server_name, "ramdisk-minecraft", "start.sh"
+                )
         subprocess.Popen(['bash', script_path])
     except Exception as e:
         restore_progress[server_name] = {
