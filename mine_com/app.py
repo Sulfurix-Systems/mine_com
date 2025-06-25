@@ -2,7 +2,6 @@ import os
 import shutil
 import psutil
 import subprocess
-import datetime
 import glob
 import re
 import zipfile
@@ -12,7 +11,7 @@ import threading
 import tarfile
 import zstandard as zstd
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey123'
@@ -909,41 +908,41 @@ def autobackup_loop():
     print("[Autobackup] Thread started")
 
     # 1. First backup 1 minute after application start
-    print(f"[{datetime.utcnow()}] Autobackup: waiting 1 minute before first backup")
+    print(f"[{datetime.now(UTC)}] Autobackup: waiting 1 minute before first backup")
     time.sleep(60)
     servers = get_all_server_names()
-    print(f"[{datetime.utcnow()}] Autobackup: first run, creating backups")
+    print(f"[{datetime.now(UTC)}] Autobackup: first run, creating backups")
     for server in servers:
         if is_server_running(server):
-            print(f"[{datetime.utcnow()}] Autobackup: {server} RUNNING, creating backup")
+            print(f"[{datetime.now(UTC)}] Autobackup: {server} RUNNING, creating backup")
             if backup_status.get(server) != "in_progress":
                 start_backup_async(server, backup_and_stop=False)
         else:
-            print(f"[{datetime.utcnow()}] Autobackup: {server} not running, skipping")
+            print(f"[{datetime.now(UTC)}] Autobackup: {server} not running, skipping")
 
     # 2. Main loop — strictly on global time (every :00 and :30)
     while True:
         wait_until_next_half_hour()
-        print(f"[{datetime.utcnow()}] Autobackup: cycle start")
+        print(f"[{datetime.now(UTC)}] Autobackup: cycle start")
         servers = get_all_server_names()
         for server in servers:
             if is_server_running(server):
-                print(f"[{datetime.utcnow()}] Autobackup: {server} RUNNING, creating backup")
+                print(f"[{datetime.now(UTC)}] Autobackup: {server} RUNNING, creating backup")
                 if backup_status.get(server) != "in_progress":
                     start_backup_async(server, backup_and_stop=False)
             else:
-                print(f"[{datetime.utcnow()}] Autobackup: {server} not running, skipping")
+                print(f"[{datetime.now(UTC)}] Autobackup: {server} not running, skipping")
 
 def wait_until_next_half_hour():
-    """Ждёт до ближайших :00 или :30 по глобальному времени."""
-    now = datetime.utcnow()
+    """Waits until the next :00 or :30 in global (UTC) time."""
+    now = datetime.now(UTC)
     minute = now.minute
     second = now.second
     microsecond = now.microsecond
     if minute < 30:
         next_time = now.replace(minute=30, second=0, microsecond=0)
     else:
-        # К следующему часу
+        # To the next hour
         next_hour = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
         next_time = next_hour
     delta = (next_time - now).total_seconds()
