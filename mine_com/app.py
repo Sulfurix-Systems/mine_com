@@ -815,10 +815,19 @@ def start_backup_async(server_name, backup_and_stop=False, threads=28):
                 return
             # Используем zstd на минимальной компрессии с многопоточностью
             cmd = f'tar -cf - -C "{world_ramdisk}" . | zstd -T{threads} -1 -o "{backup_path}"'
-            ret = subprocess.run(cmd, shell=True)
+            ret = subprocess.run(cmd, shell=True, capture_output=True)
             if ret.returncode != 0:
                 backup_status[server_name] = "error"
-                backup_result[server_name] = {'filename': None, 'success': False, 'error': f'Ошибка архивации, код {ret.returncode}'}
+                backup_result[server_name] = {
+                    'filename': None,
+                    'success': False,
+                    'error': (
+                        f'Archive error, code {ret.returncode}\n'
+                        f'stdout: {ret.stdout.decode(errors="ignore")}\n'
+                        f'stderr: {ret.stderr.decode(errors="ignore")}'
+                    )
+                }
+                print(backup_result[server_name])  # For debugging in logs
                 return
 
             if backup_and_stop:
