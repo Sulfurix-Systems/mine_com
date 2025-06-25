@@ -897,33 +897,33 @@ def get_all_server_names():
     return all_servers
 
 def autobackup_loop():
-    print("[Автобекап] Поток запущен")
+    print("[Autobackup] Thread started")
 
-    # 1. Первый запуск через 1 минуту после старта приложения
-    print(f"[{datetime.utcnow()}] Автобекап: жду 1 минуту до первого бекапа")
+    # 1. First backup 1 minute after application start
+    print(f"[{datetime.utcnow()}] Autobackup: waiting 1 minute before first backup")
     time.sleep(60)
     servers = get_all_server_names()
-    print(f"[{datetime.utcnow()}] Автобекап: первый запуск, создаю бэкапы")
+    print(f"[{datetime.utcnow()}] Autobackup: first run, creating backups")
     for server in servers:
         if is_server_running(server):
-            print(f"[{datetime.utcnow()}] Автобекап: {server} ЗАПУЩЕН, создаю бэкап")
+            print(f"[{datetime.utcnow()}] Autobackup: {server} RUNNING, creating backup")
             if backup_status.get(server) != "in_progress":
                 start_backup_async(server, backup_and_stop=False)
         else:
-            print(f"[{datetime.utcnow()}] Автобекап: {server} не запущен, пропуск")
+            print(f"[{datetime.utcnow()}] Autobackup: {server} not running, skipping")
 
-    # 2. Теперь основной цикл — строго по глобальному времени (каждые :00 и :30)
+    # 2. Main loop — strictly on global time (every :00 and :30)
     while True:
         wait_until_next_half_hour()
-        print(f"[{datetime.utcnow()}] Автобекап: старт цикла")
+        print(f"[{datetime.utcnow()}] Autobackup: cycle start")
         servers = get_all_server_names()
         for server in servers:
             if is_server_running(server):
-                print(f"[{datetime.utcnow()}] Автобекап: {server} ЗАПУЩЕН, создаю бэкап")
+                print(f"[{datetime.utcnow()}] Autobackup: {server} RUNNING, creating backup")
                 if backup_status.get(server) != "in_progress":
                     start_backup_async(server, backup_and_stop=False)
             else:
-                print(f"[{datetime.utcnow()}] Автобекап: {server} не запущен, пропуск")
+                print(f"[{datetime.utcnow()}] Autobackup: {server} not running, skipping")
 
 def wait_until_next_half_hour():
     """Ждёт до ближайших :00 или :30 по глобальному времени."""
