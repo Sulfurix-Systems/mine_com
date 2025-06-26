@@ -552,7 +552,7 @@ def run_server_script(server_name, script_name):
     script_path = os.path.join(MINECRAFT_SERVERS_DIR, server_name, "ramdisk-minecraft", script_name)
     if not os.path.isfile(script_path) or not os.access(script_path, os.X_OK):
         return False, "Файл не найден или не исполняемый.", None
-    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    ts = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
     action = script_name.replace('.sh', '')
     log_file = os.path.join(LOGS_DIR, f"{server_name}_{action}_{ts}.log")
     try:
@@ -903,8 +903,11 @@ def get_all_server_names():
     return all_servers
 
 def cleanup_old_backups(backup_dir, keep=10):
-    files = [os.path.join(backup_dir, f) for f in os.listdir(backup_dir) if f.endswith('.tar.zst')]
+    print(f"[Autobackup] cleanup_old_backups called for {backup_dir}")
+    files = [os.path.join(backup_dir, f) for f in os.listdir(backup_dir)
+             if re.match(r'^world_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.tar\.zst$', f)]
     files = sorted(files, key=os.path.getmtime, reverse=True)
+    print(f"[Autobackup] Found backups: {[os.path.basename(f) for f in files]}")
     for f in files[keep:]:
         try:
             os.remove(f)
