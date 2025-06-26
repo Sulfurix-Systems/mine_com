@@ -804,6 +804,7 @@ def start_backup_async(server_name, backup_and_stop=False, threads=28):
         try:
             world_ramdisk = os.path.join('/mnt/ramdisk', f"{server_name}_world")
             backup_dir = os.path.join('/mnt/raid/minecraft', server_name, 'backups')
+            cleanup_old_backups(backup_dir, keep=10)  # <-- HERE
             os.makedirs(backup_dir, exist_ok=True)
             timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d_%H-%M-%S")
             backup_name = f"world_{timestamp}.tar.zst"
@@ -845,7 +846,6 @@ def start_backup_async(server_name, backup_and_stop=False, threads=28):
                         return
             backup_status[server_name] = "idle"
             backup_result[server_name] = {'filename': backup_name, 'success': True, 'error': None}
-            cleanup_old_backups(backup_dir, keep=10)  # <-- HERE
         except Exception as e:
             backup_status[server_name] = "error"
             backup_result[server_name] = {'filename': None, 'success': False, 'error': str(e)}
@@ -978,4 +978,3 @@ def start_autobackup_thread():
 if __name__ == '__main__':
     start_autobackup_thread()
     app.run(host='0.0.0.0', port=8390, debug=True)
-    
