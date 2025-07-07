@@ -329,7 +329,12 @@
             </div>
             <div class="server-actions-group">
                 <div class="server-actions-row">
-                    <button class="server-btn backup-btn-start" onclick="showSelectBackupModal('${server.name}')" ${server.active || server.busy ? "disabled" : ""}>Включить</button>
+                    <button class="server-btn backup-btn-start" onclick="showSelectBackupModal('${server.name}')" ${server.active || server.busy ? "disabled" : ""}>
+                        Запустить с бекапом
+                    </button>
+                    <button class="server-btn start-btn" onclick="startServerWithoutBackup('${server.name}', this)" ${server.active || server.busy ? "disabled" : ""}>
+                        Запустить без бекапа
+                    </button>
                     <button class="server-btn backup-btn-stop" onclick="backupAndStopServer('${server.name}', this)" ${!server.active || server.busy ? "disabled" : ""}>Бекап и остановить</button>
                     <button class="server-btn backup-btn-only" onclick="backupOnlyServer('${server.name}', this)" ${!server.active ? "disabled" : ""}>Принудительный бекап</button>
                     <span class="busy-indicator" style="${server.busy || server.status === 'stopping' ? "" : "display:none"}">⏳</span>
@@ -1083,6 +1088,31 @@
                         selector.appendChild(opt);
                     });
                 });
+        }
+
+        function startServerWithoutBackup(server, btn) {
+            if (!server) return;
+            btn.disabled = true;
+            btn.textContent = "Запуск...";
+
+            fetch(`/server/${server}/start_without_backup`, {
+                method: "POST"
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    updateServerStatus(); // Обновляем статус сервера
+                } else {
+                    alert(d.error || "Ошибка запуска сервера!");
+                }
+            })
+            .catch(() => {
+                alert("Ошибка запроса к серверу!");
+            })
+            .finally(() => {
+                btn.textContent = "Запустить без бекапа";
+                btn.disabled = false;
+            });
         }
 
         function hideSelectBackupModal() {
