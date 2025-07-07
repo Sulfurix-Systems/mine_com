@@ -914,7 +914,7 @@ def start_without_backup(server_name):
     # Запускаем сервер (без восстановления бекапа)
     script_path = os.path.join(
         os.path.abspath(os.path.join(os.path.dirname(__file__), '..')),
-        server_name, "ramdisk-minecraft", "start.sh"
+        server_name, "ramdisk-minecraft", "startserver.sh"
     )
     
     try:
