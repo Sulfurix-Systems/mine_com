@@ -902,27 +902,6 @@ def get_all_server_names():
                   and d not in ("mine_com", "logs", ".git", "precreated_server_prefab")]
     return all_servers
 
-@app.route('/server/<server_name>/start_without_backup', methods=['POST'])
-def start_without_backup(server_name):
-    if 'logged_in' not in session or not session['logged_in']:
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
-    
-    # Проверяем, что сервер не запущен
-    if is_server_running(server_name):
-        return jsonify({'success': False, 'error': 'Сервер уже запущен'}), 400
-    
-    # Запускаем сервер (без восстановления бекапа)
-    script_path = os.path.join(
-        os.path.abspath(os.path.join(os.path.dirname(__file__), '..')),
-        server_name, "ramdisk-minecraft", "start.sh"
-    )
-    
-    try:
-        subprocess.Popen(['bash', script_path])
-        return jsonify({'success': True, 'message': 'Сервер запускается'})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
 def cleanup_old_backups(backup_dir, keep=10):
     print(f"[Autobackup] cleanup_old_backups called for {backup_dir}")
     files = [os.path.join(backup_dir, f) for f in os.listdir(backup_dir)
