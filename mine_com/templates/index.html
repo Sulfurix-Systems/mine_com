@@ -20,6 +20,15 @@
             z-index: 10;
         }
         .small-metrics { display: flex; gap: 32px; margin-left: auto; }
+        .mini-metric-sub {
+            font-size: 9px;
+            color: #666;
+            text-align: center;
+            max-width: 60px;
+            word-break: break-all;
+            line-height: 1.2;
+            margin-top: 1px;
+        }
         #addModModal, #addConfigModal {
             position: fixed;
             left: 0; top: 0; width: 100vw; height: 100vh;
@@ -130,6 +139,27 @@
             <div class="metric-value" id="disk-raid-percent">--%</div>
             <div class="metric-label">RAID массив</div>
         </div>
+        <div class="metric-item">
+            <div class="progress-circle" id="disk-ramdisk-circle">
+                <svg><circle class="progress-background" cx="60" cy="60" r="54"></circle><circle class="progress-bar" cx="60" cy="60" r="54"></circle></svg>
+            </div>
+            <div class="metric-value" id="disk-ramdisk-percent">--%</div>
+            <div class="metric-label">RamDisk</div>
+        </div>
+        <div class="metric-item">
+            <div class="progress-circle" id="net-recv-circle">
+                <svg><circle class="progress-background" cx="60" cy="60" r="54"></circle><circle class="progress-bar" cx="60" cy="60" r="54"></circle></svg>
+            </div>
+            <div class="metric-value" id="net-recv-val">-- МБ/с</div>
+            <div class="metric-label">Сеть ↓ приём</div>
+        </div>
+        <div class="metric-item">
+            <div class="progress-circle" id="net-sent-circle">
+                <svg><circle class="progress-background" cx="60" cy="60" r="54"></circle><circle class="progress-bar" cx="60" cy="60" r="54"></circle></svg>
+            </div>
+            <div class="metric-value" id="net-sent-val">-- МБ/с</div>
+            <div class="metric-label">Сеть ↑ отправка</div>
+        </div>
     </div>
 
     <!-- Config manager modal -->
@@ -177,6 +207,7 @@
         // ---------------------------------------------------------------------------
         let openedPropertiesPanel = null;
         let openedJvmArgsPanel = null;
+        let openedDockerLimitsPanel = null;
         let currentAddTarget = null;
         let currentConfigServer = null;
         let currentConfigPath = '';
@@ -246,7 +277,9 @@
         // ---------------------------------------------------------------------------
         function updateVersion() {
             fetch('/get_version').then(r => r.json()).then(d => {
-                document.getElementById('version-box').textContent = 'Версия: ' + (d.version || '???');
+                const ver = d.version || '???';
+                const date = d.date ? ` (${d.date})` : '';
+                document.getElementById('version-box').textContent = 'Версия: ' + ver + date;
             }).catch(() => { document.getElementById('version-box').textContent = 'Версия: ?'; });
         }
         updateVersion();
@@ -296,6 +329,7 @@
                     <button class="server-btn log-btn" onclick="toggleProperties('${server.name}')">Редактировать server.properties</button>
                     <button class="server-btn log-btn" onclick="toggleJvmArgs('${server.name}')">Редактировать user_jvm_args.txt</button>
                     <button class="server-btn log-btn" onclick="openConfigManager('${server.name}')">Конфиги (config)</button>
+                    <button class="server-btn log-btn" onclick="toggleDockerLimits('${server.name}')">Лимиты Docker</button>
                 </div>
                 <div class="server-actions-row">
                     <button class="server-btn" onclick="showAddModModal('${server.name}')">Добавить мод</button>
@@ -318,6 +352,29 @@
                 <button type="button" onclick="toggleJvmArgs('${server.name}')">Отмена</button>
                 <span id="jvmargs-status-${server.name}"></span>
             </div>
+            <div class="docker-limits-panel" id="docker-limits-${server.name}" style="display:none; padding:14px 12px; background:#f5f7fa; border:1px solid #dce1e9; border-radius:6px; margin-top:8px;">
+                <h4 style="margin:0 0 10px; font-size:14px; color:#333;">Лимиты Docker <small style="font-weight:normal; color:#888;">(применяются после перезапуска контейнера)</small></h4>
+                <div style="margin-bottom:6px;">
+                    <span style="display:inline-block;width:220px;font-weight:bold;background:#eee;border-radius:4px;padding:2px 6px;">CPUs</span>
+                    <input type="number" step="0.5" min="0.5" style="width:130px;" id="docker-cpus-${server.name}" placeholder="напр. 4.0" title="Количество CPU-ядер для контейнера">
+                    <span style="color:#888; font-size:12px; margin-left:6px;">ядер</span>
+                </div>
+                <div style="margin-bottom:6px;">
+                    <span style="display:inline-block;width:220px;font-weight:bold;background:#eee;border-radius:4px;padding:2px 6px;">Память (лимит)</span>
+                    <input type="text" style="width:130px;" id="docker-mem-${server.name}" placeholder="напр. 8g" title="Максимальный объём RAM: 8g, 8192m и т.д.">
+                    <span style="color:#888; font-size:12px; margin-left:6px;">8g / 8192m</span>
+                </div>
+                <div style="margin-bottom:6px;">
+                    <span style="display:inline-block;width:220px;font-weight:bold;background:#eee;border-radius:4px;padding:2px 6px;">Память (резерв)</span>
+                    <input type="text" style="width:130px;" id="docker-memres-${server.name}" placeholder="напр. 4g" title="Гарантированный объём RAM (soft limit)">
+                    <span style="color:#888; font-size:12px; margin-left:6px;">soft limit</span>
+                </div>
+                <div style="margin-top:10px;">
+                    <button type="button" onclick="saveDockerLimits('${server.name}')">Сохранить</button>
+                    <button type="button" onclick="toggleDockerLimits('${server.name}')">Отмена</button>
+                    <span id="docker-limits-status-${server.name}" style="margin-left:10px;"></span>
+                </div>
+            </div>
             `;
             return li;
         }
@@ -326,6 +383,8 @@
         // Mini metrics
         // ---------------------------------------------------------------------------
         function renderMiniMetricBlock(type, server) {
+            const labelMap = { cpu: 'CPU', memory: 'RAM', rootusage: 'Мир/Root', raidusage: 'Мир/RAID', ramdisk: 'RamDisk' };
+            const label = labelMap[type] || type.toUpperCase();
             return `
               <div class="mini-metric-item">
                   <svg class="mini-progress-circle" id="mini-${type}-circle-${server}" width="54" height="54">
@@ -333,7 +392,8 @@
                       <circle class="mini-progress-bar" cx="27" cy="27" r="22"></circle>
                       <text x="27" y="32" text-anchor="middle" font-size="10" class="mini-metric-value" id="mini-${type}-percent-${server}">--%</text>
                   </svg>
-                  <span class="mini-metric-label">${type.toUpperCase()}</span>
+                  <span class="mini-metric-label">${label}</span>
+                  <span class="mini-metric-sub" id="mini-${type}-sub-${server}"></span>
               </div>`;
         }
 
@@ -346,20 +406,34 @@
                     .then(r => r.json())
                     .then(data => {
                         updateMiniMetric('cpu', server, data.cpu);
-                        updateMiniMetric('memory', server, data.memory && data.memory.percent);
-                        updateMiniMetric('rootusage', server, data.root_usage_percent);
-                        updateMiniMetric('raidusage', server, data.raid_usage_percent);
+                        const memPct = data.memory && data.memory.percent;
+                        const memSub = data.memory && data.memory.total
+                            ? `${data.memory.used}/${data.memory.total} GB`
+                            : null;
+                        updateMiniMetric('memory', server, memPct, memSub);
+                        const rootSub = data.world_ramdisk_mb != null
+                            ? `${data.world_ramdisk_mb > 1024 ? (data.world_ramdisk_mb/1024).toFixed(1)+' GB' : data.world_ramdisk_mb+' MB'}`
+                            : null;
+                        updateMiniMetric('rootusage', server, data.root_usage_percent, rootSub);
+                        const raidSub = data.world_raid_mb != null
+                            ? `${data.world_raid_mb > 1024 ? (data.world_raid_mb/1024).toFixed(1)+' GB' : data.world_raid_mb+' MB'}`
+                            : null;
+                        updateMiniMetric('raidusage', server, data.raid_usage_percent, raidSub);
                         if (data.ramdisk_percent !== undefined) updateMiniMetric('ramdisk', server, data.ramdisk_percent);
                     })
                     .catch(() => {});
             });
         }
 
-        function updateMiniMetric(type, server, percent) {
+        function updateMiniMetric(type, server, percent, subtitle) {
             if (!_lastShownMiniMetrics[server]) _lastShownMiniMetrics[server] = {};
             const val = (percent !== undefined && percent !== null && percent !== "N/A") ? percent : _lastShownMiniMetrics[server][type];
             if (val !== undefined) { _lastShownMiniMetrics[server][type] = val; setMiniMetric(type, server, val); }
             else setMiniMetric(type, server, null);
+            if (subtitle !== undefined) {
+                const sub = document.getElementById(`mini-${type}-sub-${server}`);
+                if (sub) sub.textContent = subtitle || '';
+            }
         }
 
         function setMiniMetric(type, server, percent) {
@@ -435,6 +509,7 @@
                         _renderedServerNames = names;
                         if (openedPropertiesPanel) setTimeout(() => toggleProperties(openedPropertiesPanel, true), 100);
                         if (openedJvmArgsPanel) setTimeout(() => toggleJvmArgs(openedJvmArgsPanel, true), 100);
+                        if (openedDockerLimitsPanel) setTimeout(() => toggleDockerLimits(openedDockerLimitsPanel, true), 100);
                     } else {
                         data.servers.forEach(server => {
                             updateServerControlsUI(server.name, {
@@ -462,14 +537,42 @@
                     updateMetric('memory', memPct, `${data.memory.used} / ${data.memory.total} ГБ`);
                     const rootPct = data.disk_root.total ? (data.disk_root.used / data.disk_root.total * 100).toFixed(0) : 0;
                     updateMetric('disk-root', rootPct, `${data.disk_root.used} / ${data.disk_root.total} ГБ`);
-                    if (data.disk_raid.total !== "N/A") {
+                    if (data.disk_raid.total !== 'N/A') {
                         const raidPct = (data.disk_raid.used / data.disk_raid.total * 100).toFixed(0);
                         updateMetric('disk-raid', raidPct, `${data.disk_raid.used} / ${data.disk_raid.total} ГБ`);
                     } else {
-                        updateMetric('disk-raid', "N/A", null);
+                        updateMetric('disk-raid', 'N/A', null);
+                    }
+                    if (data.disk_ramdisk) {
+                        updateMetric('disk-ramdisk', data.disk_ramdisk.percent, `${data.disk_ramdisk.used} / ${data.disk_ramdisk.total} ГБ`);
+                    } else {
+                        updateMetric('disk-ramdisk', 'N/A', null);
+                    }
+                    if (data.swap && data.swap.total > 0) {
+                        // Optional: could add swap metric. For now update title of memory metric.
+                        const memEl = document.getElementById('memory-percent');
+                        if (memEl && data.swap.used > 0) {
+                            memEl.title = `Swap: ${data.swap.used} / ${data.swap.total} ГБ (${data.swap.percent}%)`;
+                        }
+                    }
+                    if (data.net) {
+                        const NET_MAX_MBPS = 125;
+                        const recvPct = Math.min(data.net.recv_mbps / NET_MAX_MBPS * 100, 100).toFixed(0);
+                        const sentPct = Math.min(data.net.sent_mbps / NET_MAX_MBPS * 100, 100).toFixed(0);
+                        updateNetMetric('net-recv', recvPct, data.net.recv_mbps);
+                        updateNetMetric('net-sent', sentPct, data.net.sent_mbps);
                     }
                 })
                 .catch(e => console.error('Resources error:', e));
+        }
+
+        function updateNetMetric(type, pct, mbps) {
+            const bar = document.querySelector(`#${type}-circle .progress-bar`);
+            const val = document.getElementById(`${type}-val`);
+            if (!bar || !val) return;
+            const circ = 339;
+            bar.style.strokeDashoffset = circ - (pct / 100 * circ);
+            val.textContent = `${mbps} МБ/с`;
         }
 
         function updateMetric(type, percent, usedMaxText) {
@@ -803,6 +906,51 @@
                 const st = document.getElementById(`jvmargs-status-${server}`);
                 if (d.success) { st.style.color = "green"; st.textContent = "Сохранено!"; }
                 else { st.style.color = "red"; st.textContent = d.error || "Ошибка!"; }
+            });
+        }
+
+        // ---------------------------------------------------------------------------
+        // Docker resource limits
+        // ---------------------------------------------------------------------------
+        function toggleDockerLimits(server, restoring) {
+            const panel = document.getElementById(`docker-limits-${server}`);
+            if (!panel) return;
+            if (panel.style.display === 'none') {
+                fetch(`/server/${server}/docker_limits`)
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d.error) { alert(d.error || 'Ошибка загрузки'); return; }
+                        panel.style.display = '';
+                        document.getElementById(`docker-cpus-${server}`).value = d.cpus || '';
+                        document.getElementById(`docker-mem-${server}`).value = d.memory || '';
+                        document.getElementById(`docker-memres-${server}`).value = d.memory_reservation || '';
+                        document.getElementById(`docker-limits-status-${server}`).textContent = '';
+                        openedDockerLimitsPanel = server;
+                    })
+                    .catch(() => alert('Не удалось загрузить лимиты Docker'));
+            } else if (!restoring) {
+                panel.style.display = 'none';
+                openedDockerLimitsPanel = null;
+            }
+        }
+
+        function saveDockerLimits(server) {
+            const cpus = document.getElementById(`docker-cpus-${server}`).value.trim();
+            const mem = document.getElementById(`docker-mem-${server}`).value.trim();
+            const memres = document.getElementById(`docker-memres-${server}`).value.trim();
+            fetch(`/server/${server}/docker_limits`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cpus, memory: mem, memory_reservation: memres })
+            })
+            .then(r => r.json())
+            .then(d => {
+                const st = document.getElementById(`docker-limits-status-${server}`);
+                if (d.success) { st.style.color = 'green'; st.textContent = 'Сохранено! Перезапустите контейнер для применения.'; }
+                else { st.style.color = 'red'; st.textContent = d.error || 'Ошибка!'; }
+            })
+            .catch(() => {
+                const st = document.getElementById(`docker-limits-status-${server}`);
+                if (st) { st.style.color = 'red'; st.textContent = 'Ошибка запроса.'; }
             });
         }
 

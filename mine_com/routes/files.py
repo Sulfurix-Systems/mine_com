@@ -1,8 +1,9 @@
-"""File management routes: server.properties, JVM args, mods, configs."""
+"""File management routes: server.properties, JVM args, mods, configs, Docker limits."""
 import os
 import shutil
 import zipfile
 
+import yaml
 from flask import Blueprint, jsonify, request
 from werkzeug.utils import secure_filename
 
@@ -209,3 +210,100 @@ def config_file(server_name):
             return jsonify({'success': True})
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Docker resource limits (docker-compose.yml deploy.resources)
+# ---------------------------------------------------------------------------
+
+@bp.route('/server/<server_name>/docker_limits', methods=['GET'])
+@login_required
+def get_docker_limits(server_name):
+    compose_path = os.path.join(
+        MINECRAFT_SERVERS_DIR, server_name, "ramdisk-minecraft", "docker-compose.yml"
+    )
+    if not os.path.isfile(compose_path):
+        return jsonify({"error": "docker-compose.yml не найден"}), 404
+    try:
+        with open(compose_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        services = data.get('services', {}) or {}
+        service = next(iter(services.values()), {}) if services else {}
+        deploy = service.get('deploy', {}) or {}
+        resources = deploy.get('resources', {}) or {}
+        limits = resources.get('limits', {}) or {}
+        reservations = resources.get('reservations', {}) or {}
+        return jsonify({
+            'cpus': str(limits.get('cpus', '')),
+            'memory': str(limits.get('memory', '')),
+            'memory_reservation': str(reservations.get('memory', '')),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route('/server/<server_name>/docker_limits', methods=['POST'])
+@login_required
+def save_docker_limits(server_name):
+    req_data = request.get_json() or {}
+    compose_path = os.path.join(
+        MINECRAFT_SERVERS_DIR, server_name, "ramdisk-minecraft", "docker-compose.yml"
+    )
+    if not os.path.isfile(compose_path):
+        return jsonify({"error": "docker-compose.yml не найден"}), 404
+    try:
+        with open(compose_path, "r", encoding="utf-8") as f:
+            compose = yaml.safe_load(f)
+
+        services = compose.get('services', {}) or {}
+        if not services:
+            return jsonify({"success": False, "error": "Нет секции services"}), 400
+
+        service_name = next(iter(services))
+        service = services[service_name]
+
+        service.setdefault('deploy', {})
+        service['deploy'].setdefault('resources', {})
+        service['deploy']['resources'].setdefault('limits', {})
+        service['deploy']['resources'].setdefault('reservations', {})
+
+        limits = service['deploy']['resources']['limits']
+        reservations = service['deploy']['resources']['reservations']
+
+        cpus = req_data.get('cpus', '').strip()
+        memory = req_data.get('memory', '').strip()
+        memory_reservation = req_data.get('memory_reservation', '').strip()
+
+        if cpus:
+            limits['cpus'] = float(cpus)
+        elif 'cpus' in limits:
+            del limits['cpus']
+
+        if memory:
+            limits['memory'] = memory
+        elif 'memory' in limits:
+            del limits['memory']
+
+        if memory_reservation:
+            reservations['memory'] = memory_reservation
+        elif 'memory' in reservations:
+            del reservations['memory']
+
+        # Clean up empty dicts
+        if not limits:
+            del service['deploy']['resources']['limits']
+        if not reservations:
+            del service['deploy']['resources']['reservations']
+        if not service['deploy']['resources']:
+            del service['deploy']['resources']
+        if not service['deploy']:
+            del service['deploy']
+
+        with open(compose_path, "w", encoding="utf-8") as f:
+            yaml.dump(compose, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+        return jsonify({"success": True})
+    except ValueError as e:
+        return jsonify({"success": False, "error": f"Некорректное значение: {e}"}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500

@@ -190,6 +190,8 @@ def server_metrics(server_name):
         "root_usage_percent": root_usage_percent,
         "raid_usage_percent": raid_usage_percent,
         "ramdisk_percent": ramdisk_percent,
+        "world_ramdisk_mb": round(ramdisk_size / (1024 * 1024), 1) if ramdisk_size else 0,
+        "world_raid_mb": round(raid_size / (1024 * 1024), 1) if raid_size else 0,
     })
 
 
@@ -303,6 +305,10 @@ def get_version():
             major = 0
             minor = len(big_indices_all)
             patch = big_indices_all[0] if big_indices_all else len(log)
-        return jsonify({"version": f"{major}.{minor}.{patch}"})
+        date_str = subprocess.check_output(
+            ["git", "log", "-1", "--pretty=format:%ad", "--date=format:%d.%m.%y"],
+            encoding="utf-8",
+        ).strip()
+        return jsonify({"version": f"{major}.{minor}.{patch}", "date": date_str})
     except Exception as ex:
         return jsonify({"error": str(ex)}), 500
