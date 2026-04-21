@@ -12,9 +12,8 @@ git config --global --add safe.directory "$REPO_DIR" || true
 # Режим запуска: без --child — запускаем себя как фоновый демон
 # ---------------------------------------------------------------------------
 if [[ "$1" != "--child" ]]; then
-  mkdir -p "$LOGS_DIR"
-  sudo nohup "$SCRIPT_PATH" --child >> "$LOGS_DIR/auto_update.log" 2>&1 &
-  echo "Монитор запущен (PID $!), лог: $LOGS_DIR/auto_update.log"
+  sudo nohup "$SCRIPT_PATH" --child >> "$APP_DIR/auto_update.log" 2>&1 &
+  echo "Монитор запущен (PID $!), лог: $APP_DIR/auto_update.log"
   exit 0
 fi
 
