@@ -31,6 +31,32 @@ log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
 }
 
+ensure_venv() {
+  if [ ! -d "$APP_DIR/venv" ]; then
+    log "Виртуальное окружение не найдено, создаю..."
+    python3 -m venv "$APP_DIR/venv"
+  fi
+}
+
+install_deps() {
+  local req="$APP_DIR/requirements.txt"
+  if [ ! -f "$req" ]; then
+    log "ПРЕДУПРЕЖДЕНИЕ: requirements.txt не найден в $req"
+    return
+  fi
+  log "Проверка и установка зависимостей из requirements.txt..."
+  source "$APP_DIR/venv/bin/activate"
+  pip install --quiet --upgrade pip
+  pip install --quiet -r "$req"
+  local exit_code=$?
+  deactivate
+  if [ $exit_code -ne 0 ]; then
+    log "ОШИБКА: pip install завершился с кодом $exit_code. Проверьте requirements.txt."
+    exit 1
+  fi
+  log "Зависимости установлены."
+}
+
 start_app() {
   source "$APP_DIR/venv/bin/activate"
   cd "$APP_DIR"
@@ -50,6 +76,8 @@ stop_app() {
   fi
 }
 
+ensure_venv
+install_deps
 start_app
 
 while true; do
@@ -64,6 +92,7 @@ while true; do
     log "Обнаружено обновление (${LOCAL:0:7} → ${REMOTE:0:7}). Перезапуск..."
     stop_app
     git pull origin "$GIT_BRANCH"
+    install_deps
     start_app
   fi
 
