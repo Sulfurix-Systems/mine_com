@@ -25,7 +25,7 @@ mkdir -p "$LOGS_DIR"
 
 GIT_BRANCH="main"
 APP_PID_FILE="$APP_DIR/flask.pid"
-LOG_FILE="$LOGS_DIR/server.log"
+LOG_FILE="$APP_DIR/server.log"
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
