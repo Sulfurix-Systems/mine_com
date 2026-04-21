@@ -55,7 +55,32 @@ def start_backup_async(server_name: str, backup_and_stop: bool = False) -> bool:
         try:
             world_ramdisk = os.path.join(RAMDISK_PATH, f"{server_name}_world")
             backup_dir = os.path.join(BACKUP_BASE, server_name, 'backups')
-            os.makedirs(backup_dir, exist_ok=True)        # must be before cleanup
+            compose_path = os.path.join(
+                MINECRAFT_SERVERS_DIR, server_name, "ramdisk-minecraft", "docker-compose.yml"
+            )
+
+            # --- Step 1 (backup_and_stop): stop the container FIRST so Minecraft
+            #     flushes the world to ramdisk before we archive it.
+            if backup_and_stop:
+                state.backup_status[server_name] = "stopping"
+                stop_result = subprocess.run(
+                    ["docker-compose", "-f", compose_path, "down"],
+                    capture_output=True,
+                )
+                if stop_result.returncode != 0:
+                    state.backup_status[server_name] = "error"
+                    state.backup_result[server_name] = {
+                        'filename': None, 'success': False,
+                        'error': (
+                            f"docker-compose down failed (code {stop_result.returncode})\n"
+                            f"stderr: {stop_result.stderr.decode(errors='ignore')}"
+                        ),
+                    }
+                    return
+                state.backup_status[server_name] = "in_progress"
+
+            # --- Step 2: backup from ramdisk (world is now fully saved)
+            os.makedirs(backup_dir, exist_ok=True)
             cleanup_old_backups(backup_dir)
 
             if not os.path.isdir(world_ramdisk):
@@ -87,23 +112,19 @@ def start_backup_async(server_name: str, backup_and_stop: bool = False) -> bool:
                 }
                 return
 
+            # --- Step 3 (backup_and_stop): unmount ramdisk after backup is done
             if backup_and_stop:
-                script_path = os.path.join(
-                    MINECRAFT_SERVERS_DIR, server_name, "ramdisk-minecraft", "stop.sh"
+                state.backup_status[server_name] = "unmounting"
+                umount_result = subprocess.run(
+                    ["sudo", "umount", world_ramdisk],
+                    capture_output=True,
                 )
-                if os.path.isfile(script_path):
-                    state.backup_status[server_name] = "stopping"
-                    stop_result = subprocess.run([script_path], capture_output=True)
-                    if stop_result.returncode != 0:
-                        state.backup_status[server_name] = "error"
-                        state.backup_result[server_name] = {
-                            'filename': backup_name, 'success': False,
-                            'error': (
-                                f"stop.sh failed: {stop_result.returncode} "
-                                f"{stop_result.stderr.decode(errors='ignore')}"
-                            ),
-                        }
-                        return
+                if umount_result.returncode != 0:
+                    # Non-fatal: backup succeeded; log the warning but don't fail
+                    print(
+                        f"[Backup] Warning: umount failed for {world_ramdisk}: "
+                        f"{umount_result.stderr.decode(errors='ignore')}"
+                    )
 
             state.backup_status[server_name] = "idle"
             state.backup_result[server_name] = {

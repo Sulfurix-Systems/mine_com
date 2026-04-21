@@ -464,7 +464,7 @@
             const dockerLogBtn = li.querySelectorAll('.server-actions-row')[1] && li.querySelectorAll('.server-btn.log-btn')[2];
 
             const isActive = !!data.active;
-            const isBusy = !!data.busy || data.backup_status === "in_progress" || data.backup_status === "stopping";
+            const isBusy = !!data.busy || data.backup_status === "in_progress" || data.backup_status === "stopping" || data.backup_status === "unmounting";
 
             if (toggle) {
                 toggle.textContent = isActive ? 'Активен' : 'Неактивен';
@@ -481,6 +481,9 @@
                     backupIndicator.classList.remove("error");
                 } else if (data.backup_status === "stopping") {
                     backupIndicator.textContent = "Остановка сервера...";
+                    backupIndicator.classList.remove("error");
+                } else if (data.backup_status === "unmounting") {
+                    backupIndicator.textContent = "Размонтирование RAM-диска...";
                     backupIndicator.classList.remove("error");
                 } else if (data.backup_status === "error") {
                     backupIndicator.textContent = "Ошибка бэкапа!";
