@@ -6,7 +6,7 @@ REPO_DIR="$(dirname "$APP_DIR")"      # git-корень (родитель APP_D
 LOGS_DIR="$REPO_DIR/logs"             # совпадает с LOGS_DIR из config.py
 
 # Разрешаем git работать в репозитории (актуально при запуске через sudo)
-git config --global --add safe.directory "$REPO_DIR"
+git config --global --add safe.directory "$REPO_DIR" || true
 
 # ---------------------------------------------------------------------------
 # Режим запуска: без --child — запускаем себя как фоновый демон
@@ -84,7 +84,7 @@ install_deps
 start_app
 
 while true; do
-  git config --global --add safe.directory "$REPO_DIR"
+  git config --global --add safe.directory "$REPO_DIR" || true
   cd "$REPO_DIR"
   git fetch origin "$GIT_BRANCH" --quiet
 
