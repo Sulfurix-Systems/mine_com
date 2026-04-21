@@ -55,6 +55,9 @@ install_deps() {
     exit 1
   fi
   log "Зависимости установлены."
+  # Гарантируем права на исполнение скриптов после git pull
+  chmod +x "$SCRIPT_PATH"
+  find "$APP_DIR" -maxdepth 1 -name "*.sh" -exec chmod +x {} \;
 }
 
 start_app() {
