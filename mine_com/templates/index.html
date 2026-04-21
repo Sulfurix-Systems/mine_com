@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -19,11 +19,7 @@
             font-weight: bold;
             z-index: 10;
         }
-        .small-metrics {
-            display: flex;
-            gap: 32px;
-            margin-left: auto;
-        }
+        .small-metrics { display: flex; gap: 32px; margin-left: auto; }
         #addModModal, #addConfigModal {
             position: fixed;
             left: 0; top: 0; width: 100vw; height: 100vh;
@@ -55,6 +51,7 @@
         <input id="new-server-name" type="text" placeholder="Имя нового сервера">
         <input id="neoforge-version" type="text" placeholder="Версия NEOFORGE (например, 21.1.164)">
         <input id="server-zip" type="file" accept=".zip">
+        <small style="color:#888;">ZIP с модами/конфигами — необязательно. Оставьте пустым для чистого мира.</small>
         <button onclick="createServer()">Создать</button>
         <button onclick="hideCreateServerModal()">Отмена</button>
         <progress id="upload-progress" value="0" max="100" style="width:200px; display:none;"></progress>
@@ -63,7 +60,7 @@
     </div>
     <ul class="server-list" id="server-list"></ul>
 
-    <!-- Модалка для добавления мода -->
+    <!-- Mod upload modal -->
     <div id="addModModal">
         <div class="modal-inner">
             <h3>Добавить мод (.jar)</h3>
@@ -73,7 +70,7 @@
             <span id="add-mod-status" style="margin-left:10px;"></span>
         </div>
     </div>
-    <!-- Модалка для добавления конфига -->
+    <!-- Config upload modal -->
     <div id="addConfigModal">
         <div class="modal-inner">
             <h3>Добавить конфиг (.zip, .toml, .json, .cfh, .json5)</h3>
@@ -83,22 +80,23 @@
             <span id="add-config-status" style="margin-left:10px;"></span>
         </div>
     </div>
-    <!-- Модалка для логов контейнера -->
+    <!-- Docker log modal -->
     <div id="dockerLogModal" style="display:none; position:fixed; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:9999; justify-content:center; align-items:center;">
         <div style="background:#fff; min-width:600px; max-width:900px; border-radius:10px; padding:20px 24px; box-shadow:0 8px 32px rgba(0,0,0,0.15); display:flex; flex-direction:column; position:relative;">
             <h3 style="margin-top:0; margin-bottom:10px;">Логи контейнера Docker</h3>
             <textarea id="docker-log-text" readonly style="width:800px; max-width:100%; height:400px; font-family:monospace; background:#222; color:#eee; border-radius:6px; border:1px solid #333; padding:12px; resize:vertical;"></textarea>
-            <button onclick="closeDockerLogModal()" style="position:absolute; right:16px; top:16px; background:#e54; color:#fff; border:none; border-radius:6px; padding:3px 10px; font-size:18px; cursor:pointer;">×</button>
+            <button onclick="closeDockerLogModal()" style="position:absolute; right:16px; top:16px; background:#e54; color:#fff; border:none; border-radius:6px; padding:3px 10px; font-size:18px; cursor:pointer;">x</button>
             <div id="docker-log-modal-status" style="color:red; margin-top:8px;"></div>
         </div>
     </div>
+    <!-- RCON modal -->
     <div id="rconModal" style="display:none; position:fixed; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:9999; justify-content:center; align-items:center;">
         <div style="background:#fff; min-width:480px; max-width:700px; border-radius:10px; padding:20px 24px; box-shadow:0 8px 32px rgba(0,0,0,0.15); display:flex; flex-direction:column; position:relative;">
             <h3 style="margin-top:0; margin-bottom:10px;">RCON Minecraft</h3>
             <input id="rcon-command" type="text" style="width:100%;margin-bottom:8px;" placeholder="Введите команду (например, list)">
             <button onclick="sendRconCommand()" style="margin-bottom:10px;">Отправить</button>
             <pre id="rcon-response" style="width:100%;height:180px;background:#222;color:#eee;border-radius:6px;padding:10px;overflow-x:auto;white-space:pre-wrap;"></pre>
-            <button onclick="closeRconModal()" style="position:absolute; right:18px; top:14px; background:#e54; color:#fff; border:none; border-radius:6px; padding:3px 10px; font-size:18px; cursor:pointer;">×</button>
+            <button onclick="closeRconModal()" style="position:absolute; right:18px; top:14px; background:#e54; color:#fff; border:none; border-radius:6px; padding:3px 10px; font-size:18px; cursor:pointer;">x</button>
         </div>
     </div>
 
@@ -106,47 +104,35 @@
     <div class="metrics-container">
         <div class="metric-item">
             <div class="progress-circle" id="cpu-circle">
-                <svg>
-                    <circle class="progress-background" cx="60" cy="60" r="54"></circle>
-                    <circle class="progress-bar" cx="60" cy="60" r="54"></circle>
-                </svg>
+                <svg><circle class="progress-background" cx="60" cy="60" r="54"></circle><circle class="progress-bar" cx="60" cy="60" r="54"></circle></svg>
             </div>
             <div class="metric-value" id="cpu-percent">--%</div>
             <div class="metric-label">Использование CPU</div>
         </div>
         <div class="metric-item">
             <div class="progress-circle" id="memory-circle">
-                <svg>
-                    <circle class="progress-background" cx="60" cy="60" r="54"></circle>
-                    <circle class="progress-bar" cx="60" cy="60" r="54"></circle>
-                </svg>
+                <svg><circle class="progress-background" cx="60" cy="60" r="54"></circle><circle class="progress-bar" cx="60" cy="60" r="54"></circle></svg>
             </div>
             <div class="metric-value" id="memory-percent">--%</div>
             <div class="metric-label">Использование памяти</div>
         </div>
         <div class="metric-item">
             <div class="progress-circle" id="disk-root-circle">
-                <svg>
-                    <circle class="progress-background" cx="60" cy="60" r="54"></circle>
-                    <circle class="progress-bar" cx="60" cy="60" r="54"></circle>
-                </svg>
+                <svg><circle class="progress-background" cx="60" cy="60" r="54"></circle><circle class="progress-bar" cx="60" cy="60" r="54"></circle></svg>
             </div>
             <div class="metric-value" id="disk-root-percent">--%</div>
             <div class="metric-label">Диск (root)</div>
         </div>
         <div class="metric-item">
             <div class="progress-circle" id="disk-raid-circle">
-                <svg>
-                    <circle class="progress-background" cx="60" cy="60" r="54"></circle>
-                    <circle class="progress-bar" cx="60" cy="60" r="54"></circle>
-                </svg>
+                <svg><circle class="progress-background" cx="60" cy="60" r="54"></circle><circle class="progress-bar" cx="60" cy="60" r="54"></circle></svg>
             </div>
             <div class="metric-value" id="disk-raid-percent">--%</div>
             <div class="metric-label">RAID массив</div>
         </div>
     </div>
 
-    <!-- Менеджер config файлов (модалка) -->
+    <!-- Config manager modal -->
     <div id="configManagerModal" style="display:none; position:fixed; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:9999;">
       <div style="background:#fff; margin:30px auto; max-width:1100px; min-width:700px; border-radius:12px; padding:22px 26px; box-shadow:0 8px 32px rgba(0,0,0,0.12); display:flex; gap:40px; min-height:60vh; height:90vh; max-height:90vh;">
         <div style="min-width:240px; border-right:1px solid #eee; padding-right:14px; height:85vh; max-height:85vh; display:flex; flex-direction:column;">
@@ -156,8 +142,7 @@
         <div style="flex:1; height:100%; display:flex; flex-direction:column; min-width:0;">
           <div id="config-file-edit" style="display:none; flex:1 1 0; min-height:0; flex-direction:column; height:100%;">
             <div id="config-filename" style="font-weight:bold; margin-bottom:8px"></div>
-            <textarea id="config-file-text"
-              style="flex:1 1 0; min-height:0; width:100%; resize:vertical; font-family:monospace; box-sizing:border-box;"></textarea>
+            <textarea id="config-file-text" style="flex:1 1 0; min-height:0; width:100%; resize:vertical; font-family:monospace; box-sizing:border-box;"></textarea>
             <div style="margin-top:10px;">
               <button onclick="saveConfigFile()">Сохранить</button>
               <span id="config-save-status" style="margin-left:16px"></span>
@@ -165,12 +150,31 @@
           </div>
           <div id="config-file-empty" style="color:#888;">Выберите файл для редактирования.</div>
         </div>
-        <button onclick="closeConfigManager()" style="position:absolute; right:20px; top:13px; background:#e54; color:#fff; border:none; border-radius:6px; padding:3px 10px; font-size:18px; cursor:pointer;">×</button>
+        <button onclick="closeConfigManager()" style="position:absolute; right:20px; top:13px; background:#e54; color:#fff; border:none; border-radius:6px; padding:3px 10px; font-size:18px; cursor:pointer;">x</button>
       </div>
     </div>
 
+    <!-- Select backup / start modal -->
+    <div id="selectBackupModal" style="display:none; position:fixed; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:10000; justify-content:center; align-items:center;">
+        <div style="background:#fff; padding:20px; border-radius:10px; min-width:340px;">
+            <h3>Запустить сервер</h3>
+            <p style="color:#555; font-size:14px;">Выберите бекап или запустите с нуля (новый мир).</p>
+            <select id="backup-selector" style="width:100%;"></select>
+            <div style="margin-top:15px; display:flex; gap:8px; flex-wrap:wrap;">
+                <button onclick="confirmBackupAndStart()">Загрузить бекап и запустить</button>
+                <button onclick="startFreshServer()" style="background:#28a745; color:#fff; border:none; border-radius:4px; padding:6px 12px; cursor:pointer;">Запустить с нуля (новый мир)</button>
+                <button onclick="hideSelectBackupModal()">Отмена</button>
+            </div>
+            <div style="margin-top:10px;">
+                <span id="backup-restore-status" style="color:red;"></span>
+            </div>
+        </div>
+    </div>
+
     <script>
-        let autoRefreshEnabled = true;
+        // ---------------------------------------------------------------------------
+        // State
+        // ---------------------------------------------------------------------------
         let openedPropertiesPanel = null;
         let openedJvmArgsPanel = null;
         let currentAddTarget = null;
@@ -178,137 +182,85 @@
         let currentConfigPath = '';
         let selectedConfigFile = '';
         let currentRconServer = null;
+        let currentStartServer = null;
+        let restorePollingTimer = null;
 
-        // --- Модалки для модов и конфигов ---
+        // Track rendered server names to avoid unnecessary full re-renders
+        let _renderedServerNames = null;
+
+        // ---------------------------------------------------------------------------
+        // Mod / Config modals
+        // ---------------------------------------------------------------------------
         function showAddModModal(server) {
             currentAddTarget = server;
             document.getElementById('addModModal').style.display = 'flex';
             document.getElementById('mod-file').value = '';
             document.getElementById('add-mod-status').textContent = '';
         }
-        function hideAddModModal() {
-            document.getElementById('addModModal').style.display = 'none';
-        }
+        function hideAddModModal() { document.getElementById('addModModal').style.display = 'none'; }
+
         function showAddConfigModal(server) {
             currentAddTarget = server;
             document.getElementById('addConfigModal').style.display = 'flex';
             document.getElementById('config-file').value = '';
             document.getElementById('add-config-status').textContent = '';
         }
-        function hideAddConfigModal() {
-            document.getElementById('addConfigModal').style.display = 'none';
-        }
+        function hideAddConfigModal() { document.getElementById('addConfigModal').style.display = 'none'; }
+
         function addMod() {
             const file = document.getElementById('mod-file').files[0];
             const status = document.getElementById('add-mod-status');
             if (!file || !file.name.endsWith('.jar')) {
-                status.style.color = "red";
-                status.textContent = "Выберите .jar файл!";
-                return;
+                status.style.color = "red"; status.textContent = "Выберите .jar файл!"; return;
             }
-            let formData = new FormData();
-            formData.append('mod_file', file);
-            fetch(`/server/${currentAddTarget}/add_mod`, {
-                method: 'POST',
-                body: formData
-            })
-            .then(r => r.json())
-            .then(d => {
-                if (d.success) {
-                    status.style.color = "green";
-                    status.textContent = "Мод добавлен!";
-                    setTimeout(hideAddModModal, 1200);
-                } else {
-                    status.style.color = "red";
-                    status.textContent = d.error || "Ошибка!";
-                }
-            });
+            const fd = new FormData();
+            fd.append('mod_file', file);
+            fetch(`/server/${currentAddTarget}/add_mod`, { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) { status.style.color = "green"; status.textContent = "Мод добавлен!"; setTimeout(hideAddModModal, 1200); }
+                    else { status.style.color = "red"; status.textContent = d.error || "Ошибка!"; }
+                });
         }
+
         function addConfig() {
             const file = document.getElementById('config-file').files[0];
             const status = document.getElementById('add-config-status');
-            if (!file) {
-                status.style.color = "red";
-                status.textContent = "Выберите файл!";
-                return;
+            if (!file) { status.style.color = "red"; status.textContent = "Выберите файл!"; return; }
+            const allowed = ['.zip', '.toml', '.json', '.cfh', '.json5'];
+            if (!allowed.some(ext => file.name.endsWith(ext))) {
+                status.style.color = "red"; status.textContent = "Недопустимый тип файла!"; return;
             }
-            const allowedExt = ['.zip', '.toml', '.json', '.cfh', '.json5'];
-            let ok = false;
-            for (let ext of allowedExt) {
-                if (file.name.endsWith(ext)) { ok = true; break; }
-            }
-            if (!ok) {
-                status.style.color = "red";
-                status.textContent = "Недопустимый тип файла!";
-                return;
-            }
-            let formData = new FormData();
-            formData.append('config_file', file);
-            fetch(`/server/${currentAddTarget}/add_config`, {
-                method: 'POST',
-                body: formData
-            })
-            .then(r => r.json())
-            .then(d => {
-                if (d.success) {
-                    status.style.color = "green";
-                    status.textContent = "Конфиг добавлен!";
-                    setTimeout(hideAddConfigModal, 1200);
-                } else {
-                    status.style.color = "red";
-                    status.textContent = d.error || "Ошибка!";
-                }
-            });
-        }
-        // --- /Модалки для модов и конфигов ---
-
-        function updateVersion() {
-            fetch('/get_version')
+            const fd = new FormData();
+            fd.append('config_file', file);
+            fetch(`/server/${currentAddTarget}/add_config`, { method: 'POST', body: fd })
                 .then(r => r.json())
                 .then(d => {
-                    document.getElementById('version-box').textContent = 'Версия: ' + (d.version || '???');
-                })
-                .catch(() => {
-                    document.getElementById('version-box').textContent = 'Версия: ?';
+                    if (d.success) { status.style.color = "green"; status.textContent = "Конфиг добавлен!"; setTimeout(hideAddConfigModal, 1200); }
+                    else { status.style.color = "red"; status.textContent = d.error || "Ошибка!"; }
                 });
+        }
+
+        // ---------------------------------------------------------------------------
+        // Version
+        // ---------------------------------------------------------------------------
+        function updateVersion() {
+            fetch('/get_version').then(r => r.json()).then(d => {
+                document.getElementById('version-box').textContent = 'Версия: ' + (d.version || '???');
+            }).catch(() => { document.getElementById('version-box').textContent = 'Версия: ?'; });
         }
         updateVersion();
         setInterval(updateVersion, 60000);
 
-        function fetchServersAndRender() {
-            fetch('/server_status')
-                .then(r => r.json())
-                .then(data => {
-                    renderServers(data.servers);
-                });
-        }
-        function closeConfigManager() {
-            document.getElementById('configManagerModal').style.display = 'none';
-            document.getElementById('config-tree').innerHTML = '';
-            document.getElementById('config-file-edit').style.display = 'none';
-            document.getElementById('config-file-empty').style.display = '';
-            autoRefreshEnabled = true;
-        }
+        // ---------------------------------------------------------------------------
+        // Server list rendering
+        // ---------------------------------------------------------------------------
         function renderServers(servers) {
             const ul = document.getElementById('server-list');
             ul.innerHTML = '';
-            servers.forEach(server => {
-                ul.appendChild(renderServerItem(server));
-            });
-            // запуск статусов бэкапов после DOM-рендера!
-            setTimeout(() => {
-                servers.forEach(server => {
-                    pollBackupStatus(server.name);
-                });
-            }, 20);
-
-            if (openedPropertiesPanel) {
-                setTimeout(() => toggleProperties(openedPropertiesPanel, true), 100);
-            }
-            if (openedJvmArgsPanel) {
-                setTimeout(() => toggleJvmArgs(openedJvmArgsPanel, true), 100);
-            }
+            servers.forEach(server => ul.appendChild(renderServerItem(server)));
         }
+
         function renderServerItem(server) {
             const li = document.createElement('li');
             li.className = "server-item";
@@ -332,24 +284,23 @@
                     <button class="server-btn backup-btn-start" onclick="showSelectBackupModal('${server.name}')" ${server.active || server.busy ? "disabled" : ""}>Включить</button>
                     <button class="server-btn backup-btn-stop" onclick="backupAndStopServer('${server.name}', this)" ${!server.active || server.busy ? "disabled" : ""}>Бекап и остановить</button>
                     <button class="server-btn backup-btn-only" onclick="backupOnlyServer('${server.name}', this)" ${!server.active ? "disabled" : ""}>Принудительный бекап</button>
-                    <span class="busy-indicator" style="${server.busy || server.status === 'stopping' ? "" : "display:none"}">⏳</span>
+                    <span class="busy-indicator" style="${server.busy ? "" : "display:none"}">⏳</span>
                     <span class="backup-status-indicator" id="backup-status-${server.name}"></span>
                 </div>
-                <!-- ... остальные кнопки без изменений ... -->
                 <div class="server-actions-row">
-                <button class="server-btn log-btn" onclick="showLog('${server.name}')">Лог старта</button>
-                <button class="server-btn log-btn" onclick="showLogStop('${server.name}')">Лог остановки</button>
-                <button class="server-btn log-btn" onclick="showDockerLog('${server.name}')" ${!server.active ? "disabled" : ""}>Логи контейнера</button>
+                    <button class="server-btn log-btn" onclick="showLog('${server.name}')">Лог старта</button>
+                    <button class="server-btn log-btn" onclick="showLogStop('${server.name}')">Лог остановки</button>
+                    <button class="server-btn log-btn" onclick="showDockerLog('${server.name}')" ${!server.active ? "disabled" : ""}>Логи контейнера</button>
                 </div>
                 <div class="server-actions-row">
-                <button class="server-btn log-btn" onclick="toggleProperties('${server.name}')">Редактировать server.properties</button>
-                <button class="server-btn log-btn" onclick="toggleJvmArgs('${server.name}')">Редактировать user_jvm_args.txt</button>
-                <button class="server-btn log-btn" onclick="openConfigManager('${server.name}')">Конфиги (config)</button>
+                    <button class="server-btn log-btn" onclick="toggleProperties('${server.name}')">Редактировать server.properties</button>
+                    <button class="server-btn log-btn" onclick="toggleJvmArgs('${server.name}')">Редактировать user_jvm_args.txt</button>
+                    <button class="server-btn log-btn" onclick="openConfigManager('${server.name}')">Конфиги (config)</button>
                 </div>
                 <div class="server-actions-row">
-                <button class="server-btn" onclick="showAddModModal('${server.name}')">Добавить мод</button>
-                <button class="server-btn" onclick="showAddConfigModal('${server.name}')">Добавить конфиг</button>
-                <button class="server-btn" onclick="openRconModal('${server.name}')">RCON</button>
+                    <button class="server-btn" onclick="showAddModModal('${server.name}')">Добавить мод</button>
+                    <button class="server-btn" onclick="showAddConfigModal('${server.name}')">Добавить конфиг</button>
+                    <button class="server-btn" onclick="openRconModal('${server.name}')">RCON</button>
                 </div>
             </div>
             <div class="properties-panel" id="properties-${server.name}" style="display:none;">
@@ -371,114 +322,9 @@
             return li;
         }
 
-        // --- Новые функции для кнопок бекапа ---
-        function backupAndStopServer(server, btn) {
-            btn.disabled = true;
-            btn.textContent = "Бекап и остановка...";
-            fetch(`/server/${server}/backup_and_stop`, { method: "POST" })
-                .then(r => r.json())
-                .then(d => {
-                    if (d.success) {
-                        pollBackupStatus(server);
-                        // Не показываем alert сразу, ждём завершения!
-                    } else {
-                        alert(d.error || "Ошибка при бекапе и остановке!");
-                    }
-                    updateServerStatus();
-                })
-                .catch(() => {
-                    alert("Ошибка запроса к серверу!");
-                    updateServerStatus();
-                })
-                .finally(() => {
-                    btn.textContent = "Бекап и остановить";
-                });
-        }
-
-        function updateBackupButtons(server) {
-            fetch(`/server/${server}/backup_status`)
-            .then(r => r.json())
-            .then(d => {
-                const backupInProgress = d.status === "in_progress";
-                const btnBackup = document.querySelector(`[onclick*="backupOnlyServer('${server}'"]`);
-                const btnBackupStop = document.querySelector(`[onclick*="backupAndStopServer('${server}'"]`);
-                if (btnBackup) btnBackup.disabled = backupInProgress;
-                if (btnBackupStop) btnBackupStop.disabled = backupInProgress;
-            });
-        }
-
-        function pollBackupStatus(server) {
-            fetch(`/server/${server}/backup_status`)
-            .then(r => r.json())
-            .then(d => {
-                const backupInProgress = d.status === "in_progress";
-                const backupStopping = d.status === "stopping";
-                // Получаем инфу о сервере из DOM (наличие класса active у .server-toggle)
-                const li = document.querySelector(`.server-item[data-server="${server}"]`);
-                let isActive = false;
-                if (li) {
-                    const toggle = li.querySelector('.server-toggle');
-                    if (toggle && toggle.classList.contains('active')) {
-                        isActive = true;
-                    }
-                }
-                const btnBackup = document.querySelector(`.backup-btn-only[onclick*="backupOnlyServer('${server}'"]`);
-                const btnBackupStop = document.querySelector(`.backup-btn-stop[onclick*="backupAndStopServer('${server}'"]`);
-                const indicator = document.getElementById(`backup-status-${server}`);
-
-                // Кнопки бэкапа блокируются если неактивен сервер или идет бэкап/остановка
-                if (btnBackup) btnBackup.disabled = backupInProgress || backupStopping || !isActive;
-                if (btnBackupStop) btnBackupStop.disabled = backupInProgress || backupStopping || !isActive;
-
-                // Информатор рядом с кнопкой
-                if (backupInProgress) {
-                    indicator.textContent = "Бекап выполняется...";
-                    indicator.classList.remove("error");
-                } else if (backupStopping) {
-                    indicator.textContent = "Остановка сервера...";
-                    indicator.classList.remove("error");
-                } else if (d.status === "error") {
-                    indicator.textContent = "Ошибка бэкапа!";
-                    indicator.classList.add("error");
-                    setTimeout(() => { indicator.textContent = ""; indicator.classList.remove("error"); }, 6000);
-                } else if (d.status === "idle" && d.success && d.filename) {
-                    indicator.textContent = "Бекап завершён: " + d.filename;
-                    indicator.classList.remove("error");
-                    setTimeout(() => { indicator.textContent = ""; }, 8000);
-                } else {
-                    indicator.textContent = "";
-                    indicator.classList.remove("error");
-                }
-
-                // Если бэкап ещё не завершён или идет остановка — продолжаем polling
-                if (backupInProgress || backupStopping) {
-                    setTimeout(() => pollBackupStatus(server), 2000);
-                }
-            });
-        }
-
-        // После действий НЕ вызывай updateServerStatus(), просто жди таймер:
-        function backupOnlyServer(server, btn) {
-            btn.disabled = true;
-            btn.textContent = "Бекап...";
-            fetch(`/server/${server}/backup`, { method: "POST" })
-                .then(r => r.json())
-                .then(d => {
-                    if (d.success) {
-                        pollBackupStatus(server);
-                    } else {
-                        alert(d.error || "Ошибка при бекапе!");
-                    }
-                })
-                .catch(() => {
-                    alert("Ошибка запроса к серверу!");
-                })
-                .finally(() => {
-                    btn.textContent = "Принудительный бекап";
-                });
-        }
-        // --- /Новые функции для кнопок бекапа ---
-
+        // ---------------------------------------------------------------------------
+        // Mini metrics
+        // ---------------------------------------------------------------------------
         function renderMiniMetricBlock(type, server) {
             return `
               <div class="mini-metric-item">
@@ -488,65 +334,50 @@
                       <text x="27" y="32" text-anchor="middle" font-size="10" class="mini-metric-value" id="mini-${type}-percent-${server}">--%</text>
                   </svg>
                   <span class="mini-metric-label">${type.toUpperCase()}</span>
-              </div>
-            `;
+              </div>`;
         }
 
-        // --- Миниметрики обновляются отдельно ---
+        let _lastShownMiniMetrics = {};
         function fetchAndUpdateMiniMetrics() {
-            const serverItems = document.querySelectorAll('.server-item');
-            serverItems.forEach(item => {
+            document.querySelectorAll('.server-item').forEach(item => {
                 const server = item.dataset.server;
                 if (!server) return;
                 fetch(`/server/${server}/metrics`)
-                    .then(response => response.json())
+                    .then(r => r.json())
                     .then(data => {
-                        updateMiniMetricIfChanged('cpu', server, data.cpu);
-                        updateMiniMetricIfChanged('memory', server, data.memory && data.memory.percent);
-                        updateMiniMetricIfChanged('rootusage', server, data.root_usage_percent);
-                        updateMiniMetricIfChanged('raidusage', server, data.raid_usage_percent);
-                        if (typeof data.ramdisk_percent !== 'undefined') {
-                            updateMiniMetricIfChanged('ramdisk', server, data.ramdisk_percent);
-                        }
+                        updateMiniMetric('cpu', server, data.cpu);
+                        updateMiniMetric('memory', server, data.memory && data.memory.percent);
+                        updateMiniMetric('rootusage', server, data.root_usage_percent);
+                        updateMiniMetric('raidusage', server, data.raid_usage_percent);
+                        if (data.ramdisk_percent !== undefined) updateMiniMetric('ramdisk', server, data.ramdisk_percent);
                     })
-                    .catch((err) => {
-                        console.error('Ошибка при фетче метрик:', err);
-                    });
+                    .catch(() => {});
             });
         }
-        function updateMiniMetricIfChanged(type, server, percent) {
-            if (!window.lastShownMiniMetrics) window.lastShownMiniMetrics = {};
-            if (!lastShownMiniMetrics[server]) lastShownMiniMetrics[server] = {};
 
-            if (percent !== undefined && percent !== null && percent !== "N/A") {
-                lastShownMiniMetrics[server][type] = percent;
-                setMiniMetric(type, server, percent);
-            } else if (lastShownMiniMetrics[server][type] !== undefined && lastShownMiniMetrics[server][type] !== null) {
-                setMiniMetric(type, server, lastShownMiniMetrics[server][type]);
-            } else {
-                setMiniMetric(type, server, null); // Показывать "--%"
-            }
+        function updateMiniMetric(type, server, percent) {
+            if (!_lastShownMiniMetrics[server]) _lastShownMiniMetrics[server] = {};
+            const val = (percent !== undefined && percent !== null && percent !== "N/A") ? percent : _lastShownMiniMetrics[server][type];
+            if (val !== undefined) { _lastShownMiniMetrics[server][type] = val; setMiniMetric(type, server, val); }
+            else setMiniMetric(type, server, null);
         }
+
         function setMiniMetric(type, server, percent) {
             const svg = document.getElementById(`mini-${type}-circle-${server}`);
             if (!svg) return;
             const bar = svg.querySelector('.mini-progress-bar');
             const text = svg.querySelector(`#mini-${type}-percent-${server}`);
-            const radius = 22;
-            const circumference = 2 * Math.PI * radius;
-            bar.setAttribute('stroke-dasharray', circumference);
-            bar.setAttribute(
-                'stroke-dashoffset',
-                percent !== undefined && percent !== null && !isNaN(percent)
-                    ? circumference - (percent / 100 * circumference)
-                    : circumference
-            );
-            if (text)
-                text.textContent = (percent !== undefined && percent !== null && !isNaN(percent)) ? `${percent}%` : '--%';
+            const r = 22;
+            const circ = 2 * Math.PI * r;
+            bar.setAttribute('stroke-dasharray', circ);
+            bar.setAttribute('stroke-dashoffset', (percent !== null && !isNaN(percent)) ? circ - (percent / 100 * circ) : circ);
+            if (text) text.textContent = (percent !== null && !isNaN(percent)) ? `${Math.round(percent)}%` : '--%';
         }
 
-        function updateServerControlsUI(server, statusData) {
-            // Найдём элементы по селекторам
+        // ---------------------------------------------------------------------------
+        // Server controls UI update (no DOM re-render)
+        // ---------------------------------------------------------------------------
+        function updateServerControlsUI(server, data) {
             const li = document.querySelector(`.server-item[data-server="${server}"]`);
             if (!li) return;
 
@@ -556,34 +387,32 @@
             const toggle = li.querySelector('.server-toggle');
             const busyIndicator = li.querySelector('.busy-indicator');
             const backupIndicator = document.getElementById(`backup-status-${server}`);
+            const dockerLogBtn = li.querySelectorAll('.server-actions-row')[1] && li.querySelectorAll('.server-btn.log-btn')[2];
 
-            // --- Активен/Неактивен ---
-            const isActive = !!statusData.active;
-            toggle.textContent = isActive ? 'Активен' : 'Неактивен';
-            toggle.className = 'server-toggle ' + (isActive ? 'active' : 'inactive');
+            const isActive = !!data.active;
+            const isBusy = !!data.busy || data.backup_status === "in_progress" || data.backup_status === "stopping";
 
-            // --- Ожидание (busy or stopping) ---
-            const isBusy = !!statusData.busy || statusData.status === "stopping" || statusData.backup_status === "in_progress" || statusData.backup_status === "stopping";
-            busyIndicator.style.display = isBusy ? '' : 'none';
-
-            // --- Кнопки ---
+            if (toggle) {
+                toggle.textContent = isActive ? 'Активен' : 'Неактивен';
+                toggle.className = 'server-toggle ' + (isActive ? 'active' : 'inactive');
+            }
+            if (busyIndicator) busyIndicator.style.display = isBusy ? '' : 'none';
             if (btnStart) btnStart.disabled = isActive || isBusy;
             if (btnStopBackup) btnStopBackup.disabled = !isActive || isBusy;
             if (btnBackupOnly) btnBackupOnly.disabled = !isActive || isBusy;
 
-            // --- Надпись статуса бэкапа/остановки ---
             if (backupIndicator) {
-                if (statusData.backup_status === "in_progress") {
+                if (data.backup_status === "in_progress") {
                     backupIndicator.textContent = "Бекап выполняется...";
                     backupIndicator.classList.remove("error");
-                } else if (statusData.backup_status === "stopping") {
+                } else if (data.backup_status === "stopping") {
                     backupIndicator.textContent = "Остановка сервера...";
                     backupIndicator.classList.remove("error");
-                } else if (statusData.backup_status === "error") {
+                } else if (data.backup_status === "error") {
                     backupIndicator.textContent = "Ошибка бэкапа!";
                     backupIndicator.classList.add("error");
-                } else if (statusData.backup_status === "idle" && statusData.backup_result && statusData.backup_result.success && statusData.backup_result.filename) {
-                    backupIndicator.textContent = "Бекап завершён: " + statusData.backup_result.filename;
+                } else if (data.backup_status === "idle" && data.backup_result && data.backup_result.success && data.backup_result.filename) {
+                    backupIndicator.textContent = "Бекап завершён: " + data.backup_result.filename;
                     backupIndicator.classList.remove("error");
                 } else {
                     backupIndicator.textContent = "";
@@ -592,530 +421,210 @@
             }
         }
 
+        // ---------------------------------------------------------------------------
+        // Master polling loop — single source of truth, no per-server instances
+        // ---------------------------------------------------------------------------
         function pollAllServersStatus() {
             fetch('/server_status')
                 .then(r => r.json())
                 .then(data => {
-                    data.servers.forEach(server => {
-                        // Для каждого сервера запрашиваем его backup_status и собираем все данные
-                        Promise.all([
-                            fetch(`/server/${server.name}/backup_status`).then(r => r.json())
-                        ]).then(([backupStatus]) => {
-                            // Собираем общий объект статуса для updateServerControlsUI
+                    const names = data.servers.map(s => s.name).sort().join(',');
+                    if (names !== _renderedServerNames) {
+                        // Server list changed — full re-render
+                        renderServers(data.servers);
+                        _renderedServerNames = names;
+                        if (openedPropertiesPanel) setTimeout(() => toggleProperties(openedPropertiesPanel, true), 100);
+                        if (openedJvmArgsPanel) setTimeout(() => toggleJvmArgs(openedJvmArgsPanel, true), 100);
+                    } else {
+                        data.servers.forEach(server => {
                             updateServerControlsUI(server.name, {
                                 active: server.active,
                                 busy: server.busy,
-                                status: server.status,
-                                backup_status: backupStatus.status,
-                                backup_result: backupStatus,
+                                backup_status: server.backup_status,
+                                backup_result: { filename: server.backup_filename, success: server.backup_success },
                             });
                         });
-                    });
+                    }
                 })
-                .finally(() => {
-                    setTimeout(pollAllServersStatus, 1000);
-                });
+                .catch(e => console.error('Status poll error:', e))
+                .finally(() => setTimeout(pollAllServersStatus, 2000));
         }
-        // --- /Миниметрики ---
 
+        // ---------------------------------------------------------------------------
+        // System resources
+        // ---------------------------------------------------------------------------
         function updateResources() {
             fetch('/resources')
-                .then(response => response.json())
+                .then(r => r.json())
                 .then(data => {
                     updateMetric('cpu', data.cpu_usage);
-                    const memPercent = (data.memory.used / data.memory.total * 100).toFixed(0);
-                    updateMetric('memory', memPercent, `${data.memory.used} / ${data.memory.total} ГБ`);
-                    const rootPercent = (data.disk_root.used / data.disk_root.total * 100).toFixed(0);
-                    updateMetric('disk-root', rootPercent, `${data.disk_root.used} / ${data.disk_root.total} ГБ`);
-                    if(data.disk_raid.total !== "N/A") {
-                        const raidPercent = (data.disk_raid.used / data.disk_raid.total * 100).toFixed(0);
-                        updateMetric('disk-raid', raidPercent, `${data.disk_raid.used} / ${data.disk_raid.total} ГБ`);
+                    const memPct = data.memory.total ? (data.memory.used / data.memory.total * 100).toFixed(0) : 0;
+                    updateMetric('memory', memPct, `${data.memory.used} / ${data.memory.total} ГБ`);
+                    const rootPct = data.disk_root.total ? (data.disk_root.used / data.disk_root.total * 100).toFixed(0) : 0;
+                    updateMetric('disk-root', rootPct, `${data.disk_root.used} / ${data.disk_root.total} ГБ`);
+                    if (data.disk_raid.total !== "N/A") {
+                        const raidPct = (data.disk_raid.used / data.disk_raid.total * 100).toFixed(0);
+                        updateMetric('disk-raid', raidPct, `${data.disk_raid.used} / ${data.disk_raid.total} ГБ`);
                     } else {
                         updateMetric('disk-raid', "N/A", null);
                     }
                 })
-                .catch(error => console.error('Ошибка обновления:', error));
+                .catch(e => console.error('Resources error:', e));
         }
-        function updateMetric(type, percent, usedMaxText = null) {
-            const element = document.querySelector(`#${type}-circle .progress-bar`);
-            const valueElement = document.getElementById(`${type}-percent`);
-            if(element && valueElement) {
-                if(percent !== "N/A") {
-                    const circumference = 339;
-                    const offset = circumference - (percent / 100 * circumference);
-                    element.style.strokeDashoffset = offset;
-                    valueElement.innerHTML = `${percent}%` + (usedMaxText ? ` <span class="metric-small">(${usedMaxText})</span>` : "");
-                } else {
-                    element.style.strokeDashoffset = 339;
-                    valueElement.innerHTML = "N/A";
-                }
+
+        function updateMetric(type, percent, usedMaxText) {
+            const bar = document.querySelector(`#${type}-circle .progress-bar`);
+            const value = document.getElementById(`${type}-percent`);
+            if (!bar || !value) return;
+            if (percent !== "N/A") {
+                const circ = 339;
+                bar.style.strokeDashoffset = circ - (percent / 100 * circ);
+                value.innerHTML = `${percent}%` + (usedMaxText ? ` <span class="metric-small">(${usedMaxText})</span>` : "");
+            } else {
+                bar.style.strokeDashoffset = 339;
+                value.innerHTML = "N/A";
             }
         }
+
+        // ---------------------------------------------------------------------------
+        // Create server
+        // ---------------------------------------------------------------------------
         function showCreateServerModal() {
             document.getElementById('createServerModal').style.display = '';
             document.getElementById('new-server-name').value = '';
+            document.getElementById('neoforge-version').value = '';
+            document.getElementById('server-zip').value = '';
             document.getElementById('create-server-status').textContent = '';
         }
-        function hideCreateServerModal() {
-            document.getElementById('createServerModal').style.display = 'none';
-        }
-        let restorePollingTimer = null;
+        function hideCreateServerModal() { document.getElementById('createServerModal').style.display = 'none'; }
 
         function createServer() {
-            const name = document.getElementById('new-server-name').value;
-            const version = document.getElementById('neoforge-version').value;
+            const name = document.getElementById('new-server-name').value.trim();
+            const version = document.getElementById('neoforge-version').value.trim();
             const zipFile = document.getElementById('server-zip').files[0];
             const status = document.getElementById('create-server-status');
             const progress = document.getElementById('upload-progress');
             const progressPercent = document.getElementById('progress-percent');
             status.textContent = "";
-            if (!name) {
-                status.style.color = "red";
-                status.textContent = "Введите имя сервера";
-                return;
-            }
-            if (!version) {
-                status.style.color = "red";
-                status.textContent = "Введите версию NEOFORGE";
-                return;
-            }
-            if (!zipFile) {
-                status.style.color = "red";
-                status.textContent = "Выберите ZIP-файл";
-                return;
-            }
-            let formData = new FormData();
-            formData.append('server_name', name);
-            formData.append('neoforge_version', version);
-            formData.append('zip_file', zipFile);
+            if (!name) { status.style.color = "red"; status.textContent = "Введите имя сервера"; return; }
+            if (!version) { status.style.color = "red"; status.textContent = "Введите версию NEOFORGE"; return; }
+            // zipFile is optional — no validation required
 
-            progress.value = 0;
-            progress.max = 100;
-            progress.style.display = '';
-            progressPercent.textContent = "0%";
-            progressPercent.style.display = '';
+            const fd = new FormData();
+            fd.append('server_name', name);
+            fd.append('neoforge_version', version);
+            if (zipFile) fd.append('zip_file', zipFile);
 
-            var xhr = new XMLHttpRequest();
+            progress.value = 0; progress.max = 100;
+            progress.style.display = ''; progressPercent.textContent = "0%"; progressPercent.style.display = '';
+
+            const xhr = new XMLHttpRequest();
             xhr.open('POST', '/create_server', true);
-
             xhr.upload.onprogress = function(e) {
                 if (e.lengthComputable) {
-                    let percent = Math.round((e.loaded / e.total) * 100);
-                    progress.value = percent;
-                    progressPercent.textContent = percent + "%";
+                    const pct = Math.round(e.loaded / e.total * 100);
+                    progress.value = pct; progressPercent.textContent = pct + "%";
                 }
             };
-
             xhr.onload = function() {
-                progress.style.display = 'none';
-                progressPercent.style.display = 'none';
+                progress.style.display = 'none'; progressPercent.style.display = 'none';
                 let d;
-                try {
-                    d = JSON.parse(xhr.responseText);
-                } catch(e) {
-                    status.textContent = "Ошибка ответа сервера";
-                    status.style.color = "red";
-                    return;
-                }
-                if (d.success) {
-                    status.style.color = "green";
-                    status.textContent = "Сервер создан!";
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    status.style.color = "red";
-                    status.textContent = d.error || 'Ошибка!';
-                }
+                try { d = JSON.parse(xhr.responseText); } catch(e) { status.style.color = "red"; status.textContent = "Ошибка ответа сервера"; return; }
+                if (d.success) { status.style.color = "green"; status.textContent = "Сервер создан!"; setTimeout(() => location.reload(), 1000); }
+                else { status.style.color = "red"; status.textContent = d.error || 'Ошибка!'; }
             };
-
             xhr.onerror = function() {
-                progress.style.display = 'none';
-                progressPercent.style.display = 'none';
-                status.style.color = "red";
-                status.textContent = "Ошибка загрузки на сервер";
+                progress.style.display = 'none'; progressPercent.style.display = 'none';
+                status.style.color = "red"; status.textContent = "Ошибка загрузки на сервер";
             };
-
-            xhr.send(formData);
-        }
-        function openConfigManager(server) {
-            currentConfigServer = server;
-            currentConfigPath = '';
-            selectedConfigFile = '';
-            document.getElementById('configManagerModal').style.display = '';
-            loadConfigTree();
-            autoRefreshEnabled = false;
-        }
-        function openRconModal(server) {
-            currentRconServer = server;
-            document.getElementById('rconModal').style.display = 'flex';
-            document.getElementById('rcon-command').value = '';
-            document.getElementById('rcon-response').textContent = '';
-        }
-        function closeRconModal() {
-            document.getElementById('rconModal').style.display = 'none';
-        }
-        function sendRconCommand() {
-            const cmdInput = document.getElementById('rcon-command');
-            const consoleBox = document.getElementById('rcon-response');
-            const cmd = cmdInput.value;
-            if (!cmd) return;
-            fetch(`/server/${currentRconServer}/rcon`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({command: cmd})
-            })
-            .then(r => r.json())
-            .then(d => {
-                // 1. Показываем команду в консоли
-                let prev = consoleBox.textContent.trim();
-                if (prev) prev += "\n";
-                prev += `> ${cmd}`;
-                // 2. Показываем ответ (или ошибку)
-                if (d.success) {
-                    let answer = (d.response === undefined || d.response === null || d.response.trim() === "")
-                        ? "(нет ответа — команда выполнена)"
-                        : d.response;
-                    prev += "\n" + answer;
-                } else {
-                    prev += "\nОшибка: " + (d.error || 'нет ответа');
-                }
-                consoleBox.textContent = prev;
-                // 3. Скроллим вниз (если переполнено)
-                consoleBox.scrollTop = consoleBox.scrollHeight;
-                // 4. Очищаем строку ввода
-                cmdInput.value = '';
-                cmdInput.focus();
-            })
-            .catch(() => {
-                let prev = consoleBox.textContent.trim();
-                if (prev) prev += "\n";
-                prev += `> ${cmd}\nОшибка отправки запроса`;
-                consoleBox.textContent = prev;
-                consoleBox.scrollTop = consoleBox.scrollHeight;
-                cmdInput.value = '';
-                cmdInput.focus();
-            });
-        }
-        function loadConfigTree(path = '') {
-            fetch(`/server/${currentConfigServer}/config/list?path=${encodeURIComponent(path)}`)
-                .then(r => r.json())
-                .then(data => {
-                    document.getElementById('config-path').textContent = 'config/' + (data.current !== '.' ? data.current : '');
-                    const ul = document.getElementById('config-tree');
-                    ul.innerHTML = '';
-                    if (data.parent !== null) {
-                        const li = document.createElement('li');
-                        li.innerHTML = '<b>⬅ .. (Назад)</b>';
-                        li.style.cursor = 'pointer';
-                        li.onclick = () => { loadConfigTree(data.parent) };
-                        ul.appendChild(li);
-                    }
-                    data.items.forEach(item => {
-                        const li = document.createElement('li');
-                        li.style.cursor = 'pointer';
-                        li.style.padding = '3px 2px';
-                        if (item.type === 'dir') {
-                            li.innerHTML = `📁 <b>${item.name}</b>`;
-                            li.onclick = () => { loadConfigTree((data.current === '.' ? '' : data.current + '/') + item.name) };
-                        } else {
-                            li.innerHTML = `📄 ${item.name}`;
-                            li.onclick = () => { loadConfigFile((data.current === '.' ? '' : data.current + '/') + item.name) };
-                        }
-                        ul.appendChild(li);
-                    });
-                    showConfigFile(null);
-                });
-        }
-        function showDockerLog(server) {
-            const modal = document.getElementById('dockerLogModal');
-            const textarea = document.getElementById('docker-log-text');
-            const status = document.getElementById('docker-log-modal-status');
-            textarea.value = "";
-            status.textContent = "";
-            modal.style.display = 'flex';
-            fetch(`/server/${server}/docker_log`)
-                .then(r => r.json())
-                .then(d => {
-                    if (d.log !== undefined) {
-                        textarea.value = d.log;
-                    } else {
-                        textarea.value = "";
-                        status.textContent = d.error || "Ошибка получения логов docker";
-                    }
-                })
-                .catch(() => {
-                    textarea.value = "";
-                    status.textContent = "Ошибка получения логов docker";
-                });
-        }
-        function closeDockerLogModal() {
-            document.getElementById('dockerLogModal').style.display = 'none';
-        }
-        function updateServerStatus() {
-            fetch('/server_status')
-                .then(resp => resp.json())
-                .then(data => {
-                    renderServers(data.servers);
-                });
-        }
-        function serverAction(name, action, btn) {
-            btn.disabled = true;
-            fetch(`/server/${name}/${action}`, {method: 'POST'})
-                .then(resp => resp.json())
-                .then(data => {
-                    if (!data.success) {
-                        alert(data.message || 'Ошибка');
-                    }
-                    updateServerStatus();
-                })
-                .catch(() => {
-                    alert('Ошибка запроса');
-                    updateServerStatus();
-                });
-        }
-        function showLog(server) {
-            fetch(`/server/${server}/start/log`)
-                .then(r => r.json())
-                .then(d => alert(d.log));
-        }
-        function showLogStop(server) {
-            fetch(`/server/${server}/stop/log`)
-                .then(r => r.json())
-                .then(d => alert(d.log));
-        }
-        function toggleProperties(server, restoring=false) {
-            const panel = document.getElementById(`properties-${server}`);
-            if (panel.style.display === "none") {
-                fetch(`/server/${server}/properties`)
-                    .then(r => r.json())
-                    .then(d => {
-                        if (d.text !== undefined) {
-                            panel.style.display = "";
-                            renderPropertiesForm(server, d.text);
-                            document.getElementById(`props-status-${server}`).textContent = "";
-                            openedPropertiesPanel = server;
-                            autoRefreshEnabled = false;
-                        } else {
-                            alert(d.error || "Ошибка загрузки");
-                        }
-                    });
-            } else if (!restoring) {
-                panel.style.display = "none";
-                openedPropertiesPanel = null;
-                autoRefreshEnabled = true;
-            }
-        }
-        function renderPropertiesForm(server, text) {
-            const lines = text.split('\n');
-            let html = "";
-            lines.forEach(line => {
-                if (line.trim().startsWith('#') || !line.includes('=')) {
-                    html += `<div><span style="color:gray;">${escapeHtml(line)}</span></div>`;
-                } else {
-                    const [key, ...rest] = line.split('=');
-                    const value = rest.join('=');
-                    html += `<div style="margin-bottom:3px;">
-                        <span style="display:inline-block;width:220px;font-weight:bold;background:#eee;border-radius:4px;padding:2px 2px 2px 6px;">${escapeHtml(key)}=</span>
-                        <input type="text" style="width:340px;" value="${escapeHtml(value)}" data-key="${escapeHtml(key)}" />
-                    </div>`;
-                }
-            });
-            document.getElementById(`prop-form-${server}`).innerHTML = html;
-        }
-        function saveProperties(server) {
-            const form = document.getElementById(`prop-form-${server}`);
-            const lines = [];
-            Array.from(form.children).forEach(div => {
-                const input = div.querySelector('input');
-                if (input) {
-                    const key = input.getAttribute('data-key');
-                    const value = input.value;
-                    lines.push(`${key}=${value}`);
-                } else {
-                    lines.push(div.textContent);
-                }
-            });
-            fetch(`/server/${server}/properties`, {
-                method: "POST",
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({text: lines.join('\n')})
-            })
-            .then(r => r.json())
-            .then(d => {
-                const status = document.getElementById(`props-status-${server}`);
-                if (d.success) {
-                    status.textContent = "Сохранено!";
-                    status.style.color = "green";
-                } else {
-                    status.textContent = d.error || "Ошибка!";
-                    status.style.color = "red";
-                }
-            });
-        }
-        function toggleJvmArgs(server, restoring=false) {
-            const panel = document.getElementById(`jvmargs-${server}`);
-            if (panel.style.display === "none") {
-                fetch(`/server/${server}/jvmargs`)
-                    .then(r => r.json())
-                    .then(d => {
-                        if (d.text !== undefined) {
-                            panel.style.display = "";
-                            document.getElementById(`jvmargs-text-${server}`).value = d.text;
-                            document.getElementById(`jvmargs-status-${server}`).textContent = "";
-                            openedJvmArgsPanel = server;
-                            autoRefreshEnabled = false;
-                        } else {
-                            alert(d.error || "Ошибка загрузки");
-                        }
-                    });
-            } else if (!restoring) {
-                panel.style.display = "none";
-                openedJvmArgsPanel = null;
-                autoRefreshEnabled = true;
-            }
-        }
-        function saveJvmArgs(server) {
-            const text = document.getElementById(`jvmargs-text-${server}`).value;
-            fetch(`/server/${server}/jvmargs`, {
-                method: "POST",
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({text: text})
-            })
-            .then(r => r.json())
-            .then(d => {
-                const status = document.getElementById(`jvmargs-status-${server}`);
-                if (d.success) {
-                    status.textContent = "Сохранено!";
-                    status.style.color = "green";
-                } else {
-                    status.textContent = d.error || "Ошибка!";
-                    status.style.color = "red";
-                }
-            });
-        }
-        function loadConfigFile(path) {
-            selectedConfigFile = path;
-            fetch(`/server/${currentConfigServer}/config/file?path=${encodeURIComponent(path)}`)
-                .then(r => r.json())
-                .then(data => {
-                    showConfigFile(data);
-                });
-        }
-        function showConfigFile(data) {
-            const edit = document.getElementById('config-file-edit');
-            const empty = document.getElementById('config-file-empty');
-            if (data && data.text !== undefined) {
-                edit.style.display = '';
-                empty.style.display = 'none';
-                document.getElementById('config-filename').textContent = data.filename;
-                document.getElementById('config-file-text').value = data.text;
-                document.getElementById('config-save-status').textContent = '';
-            } else {
-                edit.style.display = 'none';
-                empty.style.display = '';
-            }
-        }
-        function saveConfigFile() {
-            if (!selectedConfigFile) return;
-            const text = document.getElementById('config-file-text').value;
-            fetch(`/server/${currentConfigServer}/config/file?path=${encodeURIComponent(selectedConfigFile)}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({text: text})
-            })
-            .then(r => r.json())
-            .then(d => {
-                const status = document.getElementById('config-save-status');
-                if (d.success) {
-                    status.textContent = "Сохранено!";
-                    status.style.color = "green";
-                } else {
-                    status.textContent = d.error || "Ошибка!";
-                    status.style.color = "red";
-                }
-            });
-        }
-        function pollServerStatus(server) {
-            fetch(`/server/${server}/status`)
-                .then(resp => resp.json())
-                .then(status => {
-                    // Функция updateStatusUI должна обновлять DOM по статусу сервера
-                    updateStatusUI(server, status);
-                })
-                .finally(() => {
-                    setTimeout(() => pollServerStatus(server), 2000);
-                });
+            xhr.send(fd);
         }
 
-        // Эта функция должна обновлять UI для каждого сервера (например, запуск/остановка кнопок)
-        function updateStatusUI(server, status) {
-            // Например, чтобы перерисовать весь список серверов:
-            fetchServersAndRender();
-            // Или можно более умно обновлять только нужные кнопки/индикаторы
-        }
-        function escapeHtml(text) {
-            if (!text) return '';
-            return text.replace(/[<>"'&]/g, function (c) {
-                return ({
-                  '<':'&lt;',
-                  '>':'&gt;',
-                  '"':'&quot;',
-                  "'":'&#39;',
-                  '&':'&amp;'
-                })[c];
-            });
+        // ---------------------------------------------------------------------------
+        // Backup actions
+        // ---------------------------------------------------------------------------
+        function backupAndStopServer(server, btn) {
+            btn.disabled = true; btn.textContent = "Бекап и остановка...";
+            fetch(`/server/${server}/backup_and_stop`, { method: "POST" })
+                .then(r => r.json())
+                .then(d => { if (!d.success) alert(d.error || "Ошибка при бекапе и остановке!"); })
+                .catch(() => alert("Ошибка запроса к серверу!"))
+                .finally(() => { btn.textContent = "Бекап и остановить"; });
         }
 
-        let currentStartServer = null;
+        function backupOnlyServer(server, btn) {
+            btn.disabled = true; btn.textContent = "Бекап...";
+            fetch(`/server/${server}/backup`, { method: "POST" })
+                .then(r => r.json())
+                .then(d => { if (!d.success) alert(d.error || "Ошибка при бекапе!"); })
+                .catch(() => alert("Ошибка запроса к серверу!"))
+                .finally(() => { btn.textContent = "Принудительный бекап"; });
+        }
 
+        // ---------------------------------------------------------------------------
+        // Select backup / start modal
+        // ---------------------------------------------------------------------------
         function showSelectBackupModal(server) {
             currentStartServer = server;
             document.getElementById('backup-restore-status').textContent = '';
             document.getElementById('selectBackupModal').style.display = 'flex';
+            const selector = document.getElementById('backup-selector');
+            selector.innerHTML = '<option value="">-- загрузка бекапов --</option>';
             fetch(`/server/${server}/backups`)
                 .then(r => r.json())
                 .then(d => {
-                    const selector = document.getElementById('backup-selector');
                     selector.innerHTML = '';
-                    d.backups.forEach(f => {
+                    if (d.backups.length === 0) {
                         const opt = document.createElement('option');
-                        opt.value = f;
-                        opt.textContent = f;
-                        selector.appendChild(opt);
-                    });
+                        opt.value = ''; opt.textContent = '-- нет бекапов --'; selector.appendChild(opt);
+                    } else {
+                        d.backups.forEach(f => {
+                            const opt = document.createElement('option');
+                            opt.value = f; opt.textContent = f; selector.appendChild(opt);
+                        });
+                    }
                 });
         }
 
         function hideSelectBackupModal() {
             document.getElementById('selectBackupModal').style.display = 'none';
             currentStartServer = null;
+            if (restorePollingTimer) { clearTimeout(restorePollingTimer); restorePollingTimer = null; }
         }
 
         function confirmBackupAndStart() {
             const backup = document.getElementById('backup-selector').value;
             const status = document.getElementById('backup-restore-status');
-            status.style.color = "";
-            status.textContent = "";
-            if (!backup) {
-                status.textContent = 'Выберите бекап!';
-                return;
-            }
+            if (!backup) { status.style.color = "red"; status.textContent = 'Выберите бекап или используйте "Запустить с нуля"!'; return; }
+            status.style.color = ""; status.textContent = "";
             fetch(`/server/${currentStartServer}/restore_and_start`, {
                 method: "POST",
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({backup: backup})
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ backup })
             })
             .then(r => r.json())
             .then(d => {
-                if (d.success) {
-                    showRestoreProgress(currentStartServer);
-                } else {
-                    status.style.color = "red";
-                    status.textContent = d.error || "Ошибка!";
-                }
+                if (d.success) showRestoreProgress(currentStartServer);
+                else { status.style.color = "red"; status.textContent = d.error || "Ошибка!"; }
             })
-            .catch(() => {
-                status.textContent = "Ошибка запроса к серверу!";
-            });
+            .catch(() => { status.style.color = "red"; status.textContent = "Ошибка запроса к серверу!"; });
+        }
+
+        function startFreshServer() {
+            const server = currentStartServer;
+            const status = document.getElementById('backup-restore-status');
+            status.style.color = ""; status.textContent = "Запуск...";
+            fetch(`/server/${server}/start`, { method: "POST" })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) {
+                        status.style.color = "green"; status.textContent = "Сервер запускается...";
+                        setTimeout(hideSelectBackupModal, 1500);
+                    } else {
+                        status.style.color = "red"; status.textContent = d.message || d.error || "Ошибка!";
+                    }
+                })
+                .catch(() => { status.style.color = "red"; status.textContent = "Ошибка запроса к серверу!"; });
         }
 
         function showRestoreProgress(server) {
@@ -1129,51 +638,277 @@
                 .then(r => r.json())
                 .then(d => {
                     if (d.status === "extracting") {
-                        let prog = d.progress || 0;
-                        document.getElementById('restore-progress-bar').value = prog;
-                        document.getElementById('restore-progress-label').textContent = prog + "%";
+                        const prog = d.progress || 0;
+                        const bar = document.getElementById('restore-progress-bar');
+                        const lbl = document.getElementById('restore-progress-label');
+                        if (bar) bar.value = prog;
+                        if (lbl) lbl.textContent = prog + "%";
                         restorePollingTimer = setTimeout(() => pollRestoreProgress(server), 700);
                     } else if (d.status === "done") {
-                        document.getElementById('restore-progress-bar').value = 100;
-                        document.getElementById('restore-progress-label').textContent = "100%";
-                        setTimeout(() => {
-                            document.getElementById('backup-restore-status').textContent = "Готово: сервер запускается!";
-                            hideSelectBackupModal();
-                            updateServerStatus();
-                        }, 800);
+                        const bar = document.getElementById('restore-progress-bar');
+                        const lbl = document.getElementById('restore-progress-label');
+                        if (bar) bar.value = 100;
+                        if (lbl) lbl.textContent = "100%";
+                        setTimeout(() => { document.getElementById('backup-restore-status').textContent = "Готово: сервер запускается!"; hideSelectBackupModal(); }, 800);
+                    } else if (d.status === "error") {
+                        document.getElementById('backup-restore-status').innerHTML = '<span style="color:red">Ошибка: ' + escapeHtml(d.error || '') + '</span>';
                     } else {
-                        document.getElementById('backup-restore-status').textContent = "Ждём начала восстановления...";
                         restorePollingTimer = setTimeout(() => pollRestoreProgress(server), 700);
                     }
                 });
         }
 
-        setInterval(updateResources, 2500);
-        setInterval(fetchAndUpdateMiniMetrics, 2000);
+        // ---------------------------------------------------------------------------
+        // Logs
+        // ---------------------------------------------------------------------------
+        function showLog(server) {
+            fetch(`/server/${server}/start/log`).then(r => r.json()).then(d => alert(d.log));
+        }
+        function showLogStop(server) {
+            fetch(`/server/${server}/stop/log`).then(r => r.json()).then(d => alert(d.log));
+        }
+        function showDockerLog(server) {
+            const modal = document.getElementById('dockerLogModal');
+            const ta = document.getElementById('docker-log-text');
+            const st = document.getElementById('docker-log-modal-status');
+            ta.value = ""; st.textContent = ""; modal.style.display = 'flex';
+            fetch(`/server/${server}/docker_log`)
+                .then(r => r.json())
+                .then(d => { if (d.log !== undefined) ta.value = d.log; else st.textContent = d.error || "Ошибка"; })
+                .catch(() => { st.textContent = "Ошибка получения логов docker"; });
+        }
+        function closeDockerLogModal() { document.getElementById('dockerLogModal').style.display = 'none'; }
 
-        updateResources();
-        fetchServersAndRender();
-        fetchAndUpdateMiniMetrics();
-        pollAllServersStatus();
-        fetch('/server_status')
+        // ---------------------------------------------------------------------------
+        // RCON
+        // ---------------------------------------------------------------------------
+        function openRconModal(server) {
+            currentRconServer = server;
+            document.getElementById('rconModal').style.display = 'flex';
+            document.getElementById('rcon-command').value = '';
+            document.getElementById('rcon-response').textContent = '';
+        }
+        function closeRconModal() { document.getElementById('rconModal').style.display = 'none'; }
+        function sendRconCommand() {
+            const input = document.getElementById('rcon-command');
+            const box = document.getElementById('rcon-response');
+            const cmd = input.value;
+            if (!cmd) return;
+            fetch(`/server/${currentRconServer}/rcon`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command: cmd })
+            })
             .then(r => r.json())
-            .then(data => {
-                data.servers.forEach(server => {
-                    pollServerStatus(server.name);
-                    pollBackupStatus(server.name);
+            .then(d => {
+                let prev = box.textContent.trim();
+                if (prev) prev += "\n";
+                prev += `> ${cmd}\n`;
+                prev += d.success ? (d.response && d.response.trim() ? d.response : "(нет ответа — команда выполнена)") : "Ошибка: " + (d.error || 'нет ответа');
+                box.textContent = prev;
+                box.scrollTop = box.scrollHeight;
+                input.value = ''; input.focus();
+            })
+            .catch(() => { box.textContent += `\n> ${cmd}\nОшибка отправки запроса`; input.value = ''; });
+        }
+
+        // ---------------------------------------------------------------------------
+        // server.properties
+        // ---------------------------------------------------------------------------
+        function toggleProperties(server, restoring) {
+            const panel = document.getElementById(`properties-${server}`);
+            if (!panel) return;
+            if (panel.style.display === "none") {
+                fetch(`/server/${server}/properties`).then(r => r.json()).then(d => {
+                    if (d.text !== undefined) {
+                        panel.style.display = "";
+                        renderPropertiesForm(server, d.text);
+                        document.getElementById(`props-status-${server}`).textContent = "";
+                        openedPropertiesPanel = server;
+                    } else { alert(d.error || "Ошибка загрузки"); }
                 });
+            } else if (!restoring) {
+                panel.style.display = "none";
+                openedPropertiesPanel = null;
+            }
+        }
+
+        function renderPropertiesForm(server, text) {
+            const lines = text.split('\n');
+            let html = "";
+            lines.forEach(line => {
+                if (line.trim().startsWith('#') || !line.includes('=')) {
+                    html += `<div><span style="color:gray;">${escapeHtml(line)}</span></div>`;
+                } else {
+                    const eqIdx = line.indexOf('=');
+                    const key = line.substring(0, eqIdx);
+                    const value = line.substring(eqIdx + 1);
+                    html += `<div style="margin-bottom:3px;">
+                        <span style="display:inline-block;width:220px;font-weight:bold;background:#eee;border-radius:4px;padding:2px 6px;">${escapeHtml(key)}=</span>
+                        <input type="text" style="width:340px;" value="${escapeHtml(value)}" data-key="${escapeHtml(key)}" />
+                    </div>`;
+                }
             });
+            document.getElementById(`prop-form-${server}`).innerHTML = html;
+        }
+
+        function saveProperties(server) {
+            const form = document.getElementById(`prop-form-${server}`);
+            const lines = [];
+            Array.from(form.children).forEach(div => {
+                const input = div.querySelector('input');
+                if (input) lines.push(`${input.getAttribute('data-key')}=${input.value}`);
+                else lines.push(div.textContent);
+            });
+            fetch(`/server/${server}/properties`, {
+                method: "POST", headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: lines.join('\n') })
+            })
+            .then(r => r.json())
+            .then(d => {
+                const st = document.getElementById(`props-status-${server}`);
+                if (d.success) { st.style.color = "green"; st.textContent = "Сохранено!"; }
+                else { st.style.color = "red"; st.textContent = d.error || "Ошибка!"; }
+            });
+        }
+
+        // ---------------------------------------------------------------------------
+        // JVM args
+        // ---------------------------------------------------------------------------
+        function toggleJvmArgs(server, restoring) {
+            const panel = document.getElementById(`jvmargs-${server}`);
+            if (!panel) return;
+            if (panel.style.display === "none") {
+                fetch(`/server/${server}/jvmargs`).then(r => r.json()).then(d => {
+                    if (d.text !== undefined) {
+                        panel.style.display = "";
+                        document.getElementById(`jvmargs-text-${server}`).value = d.text;
+                        document.getElementById(`jvmargs-status-${server}`).textContent = "";
+                        openedJvmArgsPanel = server;
+                    } else { alert(d.error || "Ошибка загрузки"); }
+                });
+            } else if (!restoring) {
+                panel.style.display = "none";
+                openedJvmArgsPanel = null;
+            }
+        }
+
+        function saveJvmArgs(server) {
+            const text = document.getElementById(`jvmargs-text-${server}`).value;
+            fetch(`/server/${server}/jvmargs`, {
+                method: "POST", headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            })
+            .then(r => r.json())
+            .then(d => {
+                const st = document.getElementById(`jvmargs-status-${server}`);
+                if (d.success) { st.style.color = "green"; st.textContent = "Сохранено!"; }
+                else { st.style.color = "red"; st.textContent = d.error || "Ошибка!"; }
+            });
+        }
+
+        // ---------------------------------------------------------------------------
+        // Config file manager
+        // ---------------------------------------------------------------------------
+        function openConfigManager(server) {
+            currentConfigServer = server;
+            currentConfigPath = '';
+            selectedConfigFile = '';
+            document.getElementById('configManagerModal').style.display = '';
+            loadConfigTree();
+        }
+        function closeConfigManager() {
+            document.getElementById('configManagerModal').style.display = 'none';
+            document.getElementById('config-tree').innerHTML = '';
+            document.getElementById('config-file-edit').style.display = 'none';
+            document.getElementById('config-file-empty').style.display = '';
+        }
+
+        function loadConfigTree(path) {
+            path = path || '';
+            fetch(`/server/${currentConfigServer}/config/list?path=${encodeURIComponent(path)}`)
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('config-path').textContent = 'config/' + (data.current !== '.' ? data.current : '');
+                    const ul = document.getElementById('config-tree');
+                    ul.innerHTML = '';
+                    if (data.parent !== null) {
+                        const li = document.createElement('li');
+                        li.innerHTML = '<b>← .. (Назад)</b>';
+                        li.style.cursor = 'pointer';
+                        li.onclick = () => loadConfigTree(data.parent);
+                        ul.appendChild(li);
+                    }
+                    data.items.forEach(item => {
+                        const li = document.createElement('li');
+                        li.style.cssText = 'cursor:pointer; padding:3px 2px;';
+                        if (item.type === 'dir') {
+                            li.innerHTML = `&#128193; <b>${escapeHtml(item.name)}</b>`;
+                            li.onclick = () => loadConfigTree((data.current === '.' ? '' : data.current + '/') + item.name);
+                        } else {
+                            li.innerHTML = `&#128196; ${escapeHtml(item.name)}`;
+                            li.onclick = () => loadConfigFile((data.current === '.' ? '' : data.current + '/') + item.name);
+                        }
+                        ul.appendChild(li);
+                    });
+                    showConfigFile(null);
+                });
+        }
+
+        function loadConfigFile(path) {
+            selectedConfigFile = path;
+            fetch(`/server/${currentConfigServer}/config/file?path=${encodeURIComponent(path)}`)
+                .then(r => r.json()).then(data => showConfigFile(data));
+        }
+
+        function showConfigFile(data) {
+            const edit = document.getElementById('config-file-edit');
+            const empty = document.getElementById('config-file-empty');
+            if (data && data.text !== undefined) {
+                edit.style.display = 'flex';
+                empty.style.display = 'none';
+                document.getElementById('config-filename').textContent = data.filename;
+                document.getElementById('config-file-text').value = data.text;
+                document.getElementById('config-save-status').textContent = '';
+            } else {
+                edit.style.display = 'none';
+                empty.style.display = '';
+            }
+        }
+
+        function saveConfigFile() {
+            if (!selectedConfigFile) return;
+            const text = document.getElementById('config-file-text').value;
+            fetch(`/server/${currentConfigServer}/config/file?path=${encodeURIComponent(selectedConfigFile)}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            })
+            .then(r => r.json())
+            .then(d => {
+                const st = document.getElementById('config-save-status');
+                if (d.success) { st.style.color = "green"; st.textContent = "Сохранено!"; }
+                else { st.style.color = "red"; st.textContent = d.error || "Ошибка!"; }
+            });
+        }
+
+        // ---------------------------------------------------------------------------
+        // HTML escape
+        // ---------------------------------------------------------------------------
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text).replace(/[<>"'&]/g, c => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'})[c]);
+        }
+
+        // ---------------------------------------------------------------------------
+        // Bootstrap
+        // ---------------------------------------------------------------------------
+        updateResources();
+        setInterval(updateResources, 5000);
+
+        fetchAndUpdateMiniMetrics();
+        setInterval(fetchAndUpdateMiniMetrics, 5000);
+
+        // Single master polling loop — no per-server instances
+        pollAllServersStatus();
     </script>
-    <div id="selectBackupModal" style="display:none; position:fixed; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:10000; justify-content:center; align-items:center;">
-        <div style="background:#fff; padding:20px; border-radius:10px; min-width:320px;">
-            <h3>Выберите бекап для загрузки</h3>
-            <select id="backup-selector" style="width:100%;"></select>
-            <div style="margin-top:15px;">
-                <button onclick="confirmBackupAndStart()">Загрузить и запустить</button>
-                <button onclick="hideSelectBackupModal()">Отмена</button>
-            </div>
-            <span id="backup-restore-status" style="margin-left:10px; color:red;"></span>
-        </div>
-    </div>
 </body>
 </html>
