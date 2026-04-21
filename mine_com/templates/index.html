@@ -525,7 +525,7 @@
                     }
                 })
                 .catch(e => console.error('Status poll error:', e))
-                .finally(() => setTimeout(pollAllServersStatus, 2000));
+                .finally(() => setTimeout(pollAllServersStatus, 1000));
         }
 
         // ---------------------------------------------------------------------------
@@ -1053,10 +1053,10 @@
         // Bootstrap
         // ---------------------------------------------------------------------------
         updateResources();
-        setInterval(updateResources, 5000);
+        setInterval(updateResources, 2000);
 
         fetchAndUpdateMiniMetrics();
-        setInterval(fetchAndUpdateMiniMetrics, 5000);
+        setInterval(fetchAndUpdateMiniMetrics, 2000);
 
         // Single master polling loop — no per-server instances
         pollAllServersStatus();

@@ -64,7 +64,8 @@ h1, h2 {
     stroke-dashoffset: 138.2;
     transform: rotate(-90deg);
     transform-origin: 50% 50%;
-    transition: stroke-dashoffset 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: stroke-dashoffset 1.6s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: stroke-dashoffset;
 }
 
 .mini-metric-label {
@@ -144,7 +145,8 @@ h1, h2 {
     stroke: #4dabf7;
     stroke-dasharray: 339;
     stroke-dashoffset: calc(339 - (339 * var(--percent) / 100));
-    transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: stroke-dashoffset 1.6s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: stroke-dashoffset;
 }
 
 .metric-value {
