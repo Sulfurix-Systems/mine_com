@@ -9,7 +9,7 @@ from flask import Blueprint, jsonify, redirect, render_template, request, sessio
 from mcipc.rcon.je import Client as RconClient
 
 import state
-from config import MINECRAFT_SERVERS_DIR
+from config import BACKUP_BASE, MINECRAFT_SERVERS_DIR
 from routes.auth import login_required
 from services.server_manager import (
     get_server_container_name,
@@ -70,6 +70,25 @@ def server_action(server_name, action):
     if action == 'start':
         patch_bluemap_configs(server_name)
     ok, msg, pid = run_server_script(server_name, script_file)
+    if ok and pid:
+        state.busy_pids[server_name] = pid
+    return jsonify({'success': ok, 'message': msg})
+
+
+@bp.route('/server/<server_name>/start_fresh', methods=['POST'])
+@login_required
+def server_start_fresh(server_name):
+    world_path = os.path.join(BACKUP_BASE, server_name, 'world')
+
+    try:
+        if os.path.exists(world_path):
+            shutil.rmtree(world_path)
+        os.makedirs(world_path, exist_ok=True)
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Не удалось подготовить новый мир: {e}'}), 500
+
+    patch_bluemap_configs(server_name)
+    ok, msg, pid = run_server_script(server_name, 'start.sh')
     if ok and pid:
         state.busy_pids[server_name] = pid
     return jsonify({'success': ok, 'message': msg})

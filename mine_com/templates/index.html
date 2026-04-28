@@ -719,12 +719,12 @@
         function startFreshServer() {
             const server = currentStartServer;
             const status = document.getElementById('backup-restore-status');
-            status.style.color = ""; status.textContent = "Запуск...";
-            fetch(`/server/${server}/start`, { method: "POST" })
+            status.style.color = ""; status.textContent = "Создаю новый мир и запускаю сервер...";
+            fetch(`/server/${server}/start_fresh`, { method: "POST" })
                 .then(r => r.json())
                 .then(d => {
                     if (d.success) {
-                        status.style.color = "green"; status.textContent = "Сервер запускается...";
+                        status.style.color = "green"; status.textContent = "Новый мир создаётся, сервер запускается...";
                         setTimeout(hideSelectBackupModal, 1500);
                     } else {
                         status.style.color = "red"; status.textContent = d.message || d.error || "Ошибка!";
