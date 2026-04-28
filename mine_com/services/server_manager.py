@@ -2,6 +2,8 @@
 import datetime
 import glob
 import os
+import shutil
+import stat
 import subprocess
 
 import psutil
@@ -34,6 +36,77 @@ def is_server_running(server_name: str) -> bool:
         return bool(output)
     except Exception:
         return False
+
+
+def get_compose_command() -> list:
+    """Prefer Docker Compose v2 plugin, fallback to legacy docker-compose binary."""
+    docker_binary = shutil.which("docker")
+    if docker_binary:
+        try:
+            result = subprocess.run(
+                [docker_binary, "compose", "version"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+            if result.returncode == 0:
+                return [docker_binary, "compose"]
+        except OSError:
+            pass
+
+    docker_compose_binary = shutil.which("docker-compose")
+    if docker_compose_binary:
+        return [docker_compose_binary]
+
+    raise RuntimeError("Docker Compose is not installed")
+
+
+def ensure_server_runtime_scripts(server_name: str) -> None:
+    """Patch existing per-server scripts to use a compatible Compose command."""
+    scripts_dir = os.path.join(MINECRAFT_SERVERS_DIR, server_name, "ramdisk-minecraft")
+    shim = (
+        "# MC compose shim: prefer Docker Compose v2 plugin, fallback to v1 binary.\n"
+        "resolve_compose_cmd() {\n"
+        "  if docker compose version >/dev/null 2>&1; then\n"
+        "    COMPOSE_CMD=(docker compose)\n"
+        "  elif command -v docker-compose >/dev/null 2>&1; then\n"
+        "    COMPOSE_CMD=(docker-compose)\n"
+        "  else\n"
+        "    echo \"Docker Compose is not installed\" >&2\n"
+        "    exit 127\n"
+        "  fi\n"
+        "}\n"
+        "resolve_compose_cmd\n"
+    )
+
+    for script_name in ("start.sh", "stop.sh"):
+        script_path = os.path.join(scripts_dir, script_name)
+        if not os.path.isfile(script_path):
+            continue
+
+        with open(script_path, "r", encoding="utf-8", errors="replace", newline="") as f:
+            content = f.read()
+
+        updated = content
+        if "docker-compose -f" in updated:
+            if "# MC compose shim:" not in updated:
+                if "set -e\n" in updated:
+                    updated = updated.replace("set -e\n", f"set -e\n\n{shim}\n", 1)
+                else:
+                    lines = updated.splitlines(keepends=True)
+                    insert_at = 1 if lines and lines[0].startswith("#!") else 0
+                    lines.insert(insert_at, shim + "\n")
+                    updated = "".join(lines)
+            updated = updated.replace("docker-compose -f", '"${COMPOSE_CMD[@]}" -f')
+
+        if updated != content:
+            with open(script_path, "w", encoding="utf-8", newline="\n") as f:
+                f.write(updated)
+
+        current_mode = os.stat(script_path).st_mode
+        exec_mode = current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        if exec_mode != current_mode:
+            os.chmod(script_path, exec_mode)
 
 
 # ---------------------------------------------------------------------------
@@ -70,15 +143,20 @@ def run_server_script(server_name: str, script_name: str):
     script_path = os.path.join(
         MINECRAFT_SERVERS_DIR, server_name, "ramdisk-minecraft", script_name
     )
-    if not os.path.isfile(script_path) or not os.access(script_path, os.X_OK):
-        return False, "Файл не найден или не исполняемый.", None
+    if not os.path.isfile(script_path):
+        return False, "Файл не найден.", None
+
+    try:
+        ensure_server_runtime_scripts(server_name)
+    except Exception as e:
+        return False, f"Ошибка подготовки скрипта: {e}", None
 
     ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
     action = script_name.replace('.sh', '')
     log_file = os.path.join(LOGS_DIR, f"{server_name}_{action}_{ts}.log")
     try:
         with open(log_file, "w") as f:
-            proc = subprocess.Popen([script_path], stdout=f, stderr=subprocess.STDOUT)
+            proc = subprocess.Popen(["bash", script_path], stdout=f, stderr=subprocess.STDOUT)
         state.busy_pids[server_name] = proc.pid
         return True, f"Скрипт запущен (pid {proc.pid}). Лог пишется.", proc.pid
     except Exception as e:

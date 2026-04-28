@@ -1,6 +1,20 @@
 #!/bin/bash
 set -e
 
+# Prefer Docker Compose v2 plugin, fallback to legacy docker-compose binary.
+resolve_compose_cmd() {
+  if docker compose version >/dev/null 2>&1; then
+    COMPOSE_CMD=(docker compose)
+  elif command -v docker-compose >/dev/null 2>&1; then
+    COMPOSE_CMD=(docker-compose)
+  else
+    echo "Docker Compose is not installed" >&2
+    exit 127
+  fi
+}
+
+resolve_compose_cmd
+
 # Определяем имя сервера из папки, где лежит start.sh
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 SERVER_NAME="$(basename "$(dirname "$SCRIPT_DIR")")"
@@ -93,16 +107,16 @@ fi
 if [ -f "$STATE_FILE" ]; then
   if diff -q "$TEMP_STATE" "$STATE_FILE" >/dev/null; then
     echo "✅ Моды и конфиги не изменялись"
-    docker-compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d
+    "${COMPOSE_CMD[@]}" -f "${SCRIPT_DIR}/docker-compose.yml" up -d
   else
     echo "🔄 Обнаружены изменения модов или конфигов"
     cp "$TEMP_STATE" "$STATE_FILE"
-    docker-compose -f "${SCRIPT_DIR}/docker-compose.yml" up --build -d
+    "${COMPOSE_CMD[@]}" -f "${SCRIPT_DIR}/docker-compose.yml" up --build -d
   fi
 else
   echo "🚀 Первоначальная сборка"
   cp "$TEMP_STATE" "$STATE_FILE"
-  docker-compose -f "${SCRIPT_DIR}/docker-compose.yml" up --build -d
+  "${COMPOSE_CMD[@]}" -f "${SCRIPT_DIR}/docker-compose.yml" up --build -d
 fi
 
 rm "$TEMP_STATE"

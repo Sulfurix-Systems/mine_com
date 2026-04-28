@@ -11,7 +11,12 @@ import zstandard as zstd
 
 import state
 from config import BACKUP_BASE, BACKUP_KEEP, BACKUP_THREADS, MINECRAFT_SERVERS_DIR, RAMDISK_PATH
-from services.server_manager import get_all_server_names, is_server_running
+from services.server_manager import (
+    ensure_server_runtime_scripts,
+    get_all_server_names,
+    get_compose_command,
+    is_server_running,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -63,8 +68,9 @@ def start_backup_async(server_name: str, backup_and_stop: bool = False) -> bool:
             #     flushes the world to ramdisk before we archive it.
             if backup_and_stop:
                 state.backup_status[server_name] = "stopping"
+                compose_cmd = get_compose_command()
                 stop_result = subprocess.run(
-                    ["docker-compose", "-f", compose_path, "down"],
+                    compose_cmd + ["-f", compose_path, "down"],
                     capture_output=True,
                 )
                 if stop_result.returncode != 0:
@@ -72,7 +78,7 @@ def start_backup_async(server_name: str, backup_and_stop: bool = False) -> bool:
                     state.backup_result[server_name] = {
                         'filename': None, 'success': False,
                         'error': (
-                            f"docker-compose down failed (code {stop_result.returncode})\n"
+                            f"docker compose down failed (code {stop_result.returncode})\n"
                             f"stderr: {stop_result.stderr.decode(errors='ignore')}"
                         ),
                     }
@@ -177,6 +183,7 @@ def extract_zst_tar_with_progress_and_start(
         script_path = os.path.join(
             MINECRAFT_SERVERS_DIR, server_name, "ramdisk-minecraft", "start.sh"
         )
+        ensure_server_runtime_scripts(server_name)
         subprocess.Popen(['bash', script_path])
     except Exception as e:
         state.restore_progress[server_name] = {

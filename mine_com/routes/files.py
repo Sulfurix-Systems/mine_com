@@ -275,7 +275,8 @@ def save_docker_limits(server_name):
         memory_reservation = req_data.get('memory_reservation', '').strip()
 
         if cpus:
-            limits['cpus'] = float(cpus)
+            float(cpus)
+            limits['cpus'] = cpus
         elif 'cpus' in limits:
             del limits['cpus']
 
