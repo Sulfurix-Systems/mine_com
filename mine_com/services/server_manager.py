@@ -28,14 +28,31 @@ def is_pid_running(pid) -> bool:
 
 def is_server_running(server_name: str) -> bool:
     """Return True if the server's Docker container is currently running."""
+    return get_server_container_name(server_name) is not None
+
+
+def get_server_container_name(server_name: str, include_stopped: bool = False) -> str | None:
+    """Return the active container name for a server, including legacy host-prefixed names."""
     try:
+        cmd = ["docker", "ps", "--format", "{{.Names}}"]
+        if include_stopped:
+            cmd.insert(2, "-a")
         output = subprocess.check_output(
-            ["docker", "ps", "--filter", f"name=^{server_name}-server$", "--format", "{{.ID}}"],
+            cmd,
             stderr=subprocess.DEVNULL,
-        ).decode().strip()
-        return bool(output)
+        ).decode().splitlines()
+        exact_name = f"{server_name}-server"
+        if exact_name in output:
+            return exact_name
+
+        legacy_suffix = f"_{exact_name}"
+        for name in output:
+            if name.endswith(legacy_suffix):
+                return name
+
+        return None
     except Exception:
-        return False
+        return None
 
 
 def get_compose_command() -> list:
@@ -98,6 +115,16 @@ def ensure_server_runtime_scripts(server_name: str) -> None:
                     lines.insert(insert_at, shim + "\n")
                     updated = "".join(lines)
             updated = updated.replace("docker-compose -f", '"${COMPOSE_CMD[@]}" -f')
+
+        if "container_name:" in updated and "container_name: ${SERVER_NAME}-server" not in updated:
+            normalized_lines = []
+            for line in updated.splitlines(keepends=True):
+                if line.lstrip().startswith("container_name:"):
+                    line_ending = "\r\n" if line.endswith("\r\n") else "\n" if line.endswith("\n") else ""
+                    indent = line[:len(line) - len(line.lstrip())]
+                    line = f"{indent}container_name: ${{SERVER_NAME}}-server{line_ending}"
+                normalized_lines.append(line)
+            updated = "".join(normalized_lines)
 
         if updated != content:
             with open(script_path, "w", encoding="utf-8", newline="\n") as f:

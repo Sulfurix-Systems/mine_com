@@ -12,6 +12,7 @@ import state
 from config import MINECRAFT_SERVERS_DIR
 from routes.auth import login_required
 from services.server_manager import (
+    get_server_container_name,
     get_action_log,
     get_rcon_params,
     get_servers_with_status,
@@ -92,11 +93,12 @@ def server_action_log(server_name, action):
 @bp.route('/server/<server_name>/docker_log')
 @login_required
 def server_docker_log(server_name):
-    if not is_server_running(server_name):
+    container_name = get_server_container_name(server_name)
+    if not container_name:
         return jsonify({'error': 'Контейнер не запущен'}), 400
     try:
         log = subprocess.check_output(
-            ["docker", "logs", f"{server_name}-server", "--tail", "100"],
+            ["docker", "logs", container_name, "--tail", "100"],
             stderr=subprocess.STDOUT,
             encoding="utf-8",
             errors="replace",
@@ -122,12 +124,14 @@ def server_metrics(server_name):
     mem_total = 0
 
     try:
-        cname = f"{server_name}-server"
+        cname = get_server_container_name(server_name)
         lines = subprocess.check_output(
             ["docker", "stats", "--no-stream", "--format",
              "{{.Name}} {{.CPUPerc}} {{.MemUsage}}"]
         ).decode().splitlines()
         for line in lines:
+            if not cname:
+                break
             if line.startswith(cname + " "):
                 parts = line.split()
                 cpu_percent = float(parts[1].replace('%', '').replace(',', '.'))
