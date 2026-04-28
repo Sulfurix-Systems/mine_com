@@ -12,10 +12,12 @@ import zstandard as zstd
 import state
 from config import BACKUP_BASE, BACKUP_KEEP, BACKUP_THREADS, MINECRAFT_SERVERS_DIR, RAMDISK_PATH
 from services.server_manager import (
+    cleanup_server_containers,
     ensure_server_runtime_scripts,
     get_all_server_names,
     get_compose_command,
     is_server_running,
+    prepare_server_for_restore,
 )
 
 
@@ -155,6 +157,15 @@ def extract_zst_tar_with_progress_and_start(
 ) -> None:
     """Extract a .tar.zst backup with progress tracking, then run start.sh."""
     try:
+        state.restore_progress[server_name] = {
+            "status": "preparing",
+            "backup": os.path.basename(backup_path),
+            "progress": 0,
+            "total": os.path.getsize(backup_path),
+        }
+        prepare_server_for_restore(server_name)
+        cleanup_server_containers(server_name, remove_running=True)
+
         total_size = os.path.getsize(backup_path)
         state.restore_progress[server_name] = {
             "status": "extracting",

@@ -31,8 +31,8 @@ def is_server_running(server_name: str) -> bool:
     return get_server_container_name(server_name) is not None
 
 
-def get_server_container_name(server_name: str, include_stopped: bool = False) -> str | None:
-    """Return the active container name for a server, including legacy host-prefixed names."""
+def get_server_container_names(server_name: str, include_stopped: bool = False) -> list[str]:
+    """List matching container names for a server, including legacy host-prefixed names."""
     try:
         cmd = ["docker", "ps", "--format", "{{.Names}}"]
         if include_stopped:
@@ -41,18 +41,52 @@ def get_server_container_name(server_name: str, include_stopped: bool = False) -
             cmd,
             stderr=subprocess.DEVNULL,
         ).decode().splitlines()
+
         exact_name = f"{server_name}-server"
-        if exact_name in output:
-            return exact_name
-
         legacy_suffix = f"_{exact_name}"
-        for name in output:
-            if name.endswith(legacy_suffix):
-                return name
-
-        return None
+        matches = [name for name in output if name == exact_name or name.endswith(legacy_suffix)]
+        matches.sort(key=lambda name: (name != exact_name, name))
+        return matches
     except Exception:
-        return None
+        return []
+
+
+def get_server_container_name(server_name: str, include_stopped: bool = False) -> str | None:
+    """Return the active container name for a server, including legacy host-prefixed names."""
+    names = get_server_container_names(server_name, include_stopped=include_stopped)
+    return names[0] if names else None
+
+
+def cleanup_server_containers(server_name: str, remove_running: bool = False) -> None:
+    """Remove conflicting server containers. By default keeps currently running ones."""
+    running = set(get_server_container_names(server_name, include_stopped=False))
+    for container_name in get_server_container_names(server_name, include_stopped=True):
+        if not remove_running and container_name in running:
+            continue
+        subprocess.run(
+            ["docker", "rm", "-f", container_name],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+
+
+def prepare_server_for_restore(server_name: str) -> None:
+    """Stop the current server instance and remove matched legacy containers before restore."""
+    ensure_server_runtime_scripts(server_name)
+
+    stop_script_path = os.path.join(
+        MINECRAFT_SERVERS_DIR, server_name, "ramdisk-minecraft", "stop.sh"
+    )
+    if os.path.isfile(stop_script_path):
+        subprocess.run(
+            ["bash", stop_script_path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+
+    cleanup_server_containers(server_name, remove_running=True)
 
 
 def get_compose_command() -> list:
@@ -175,6 +209,8 @@ def run_server_script(server_name: str, script_name: str):
 
     try:
         ensure_server_runtime_scripts(server_name)
+        if script_name == "start.sh":
+            cleanup_server_containers(server_name, remove_running=False)
     except Exception as e:
         return False, f"Ошибка подготовки скрипта: {e}", None
 
